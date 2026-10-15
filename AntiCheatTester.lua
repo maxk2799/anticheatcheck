@@ -15,9 +15,6 @@
 ]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-if not RunService:IsStudio() then
-    return
-end
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local LocalPlayer = Players.LocalPlayer
