@@ -15,6 +15,9 @@
 ]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+if not RunService:IsStudio() then
+    return
+end
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local LocalPlayer = Players.LocalPlayer
@@ -55,6 +58,9 @@ local Settings = {
     TriggerKey = "Always", -- Always / Hold RMB
     TriggerDelay = 0, -- ms before the first shot
     TriggerCooldown = 0.12,
+    PeekPrefire = false,
+    PeekLead = 8, -- studs ahead of a hidden player's movement
+    PeekCover = 14, -- max studs of cover between the player and the wall face
     -- Visuals
     ESPLines = false,
     ESPBoxes = false,
@@ -755,6 +761,11 @@ addTab("Stats", "Stats", 5)
 -- =========================================================
 local menuPage =
     createPage("Menu")
+local combatPresetButton = makeButton(menuPage, "Enemy Combat Preset: ON")
+makeLabel(
+    menuPage,
+    "Auto Aim, highlights, and tracers for enemies."
+)
 makeLabel(
     menuPage,
     "Pick a category, or use the tabs above."
@@ -813,6 +824,11 @@ makeStepper(combatPage, function()
     return "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000 + 0.5) .. " ms"
 end, stepSetting("TriggerCooldown", 0.02, 0.01, 2))
 makeLabel(combatPage, "Fires the equipped Tool while the crosshair is on a player.")
+makeLabel(combatPage, "PEEK PREFIRE")
+local peekButton = makeButton(combatPage, "Peek Prefire: OFF")
+makeStepper(combatPage, showSetting("Peek Lead: ", "PeekLead"), stepSetting("PeekLead", 1, 2, 30))
+makeStepper(combatPage, showSetting("Cover Range: ", "PeekCover"), stepSetting("PeekCover", 2, 4, 40))
+makeLabel(combatPage, "Fires at the open side of a wall when a hidden player moves into it.")
 
 -- =========================================================
 -- VISUALS PAGE
@@ -1365,7 +1381,7 @@ local function refreshESP()
             targetESPLabel.Text = "ESP target: @" .. player.Name
         end
         local targeted = selected and Settings.TargetedESPEnabled
-        if player ~= LocalPlayer and (Settings.ESPEnabled or targeted)
+        if player ~= LocalPlayer and not sameTeam(player) and (Settings.ESPEnabled or targeted)
             and player.Character and isAlive(player.Character) then
             local highlight = Instance.new("Highlight")
             highlight.Name = targeted and "AntiCheatTargetESP" or "AntiCheatESP"
@@ -1585,6 +1601,117 @@ local function releaseTriggerTool()
         activeTriggerTool = nil
     end
 end
+local function tryActivateTool(target)
+    local character = getCharacter()
+    local humanoid = getHumanoid()
+    if not character or not humanoid or humanoid.Health <= 0 then
+        releaseTriggerTool()
+        return false
+    end
+    local tool = character:FindFirstChildOfClass("Tool")
+    if not tool or not tool.Enabled or (tool.RequiresHandle and not tool:FindFirstChild("Handle")) then
+        releaseTriggerTool()
+        if os.clock() - lastToolMessage > 3 then
+            lastToolMessage = os.clock()
+            log("Triggerbot: equip an enabled weapon Tool with its required Handle.")
+        end
+        return false
+    end
+    if activeTriggerTool and activeTriggerTool ~= tool then
+        releaseTriggerTool()
+    end
+    local now = os.clock()
+    if now - State.LastTrigger < Settings.TriggerCooldown then
+        return false
+    end
+    State.LastTrigger = now
+    releaseTriggerTool()
+    local ok, err = pcall(function()
+        tool:Activate()
+    end)
+    if ok then
+        activeTriggerTool = tool
+        triggerEvent:Fire(target)
+        return true
+    elseif now - lastToolMessage > 3 then
+        lastToolMessage = now
+        log("Tool activation failed: " .. tostring(err))
+    end
+    return false
+end
+-- True when a ray from the camera reaches the point, or hits the given character first.
+local function cameraSees(position, model)
+    Camera = workspace.CurrentCamera
+    if not Camera then
+        return false
+    end
+    local origin = Camera.CFrame.Position
+    local delta = position - origin
+    if delta.Magnitude < 0.05 then
+        return true
+    end
+    local parameters = RaycastParams.new()
+    parameters.FilterType = Enum.RaycastFilterType.Exclude
+    parameters.FilterDescendantsInstances = getCharacter() and {getCharacter()} or {}
+    parameters.IgnoreWater = true
+    local result = workspace:Raycast(origin, delta, parameters)
+    if not result then
+        return true
+    end
+    if model and result.Instance:IsDescendantOf(model) then
+        return true
+    end
+    return (result.Position - origin).Magnitude >= delta.Magnitude - 0.75
+end
+local function findPeekPoint()
+    Camera = workspace.CurrentCamera
+    if not Camera then
+        return nil
+    end
+    local center = Camera.ViewportSize / 2
+    local bestPoint, bestPixels = nil, math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not sameTeam(player) then
+            local character = player.Character
+            local part = character and isAlive(character) and getAimPart(character)
+            if part and not cameraSees(part.Position, character) then
+                local velocity = part.AssemblyLinearVelocity
+                local flat = Vector3.new(velocity.X, 0, velocity.Z)
+                if flat.Magnitude >= 4 then
+                    local ahead = part.Position + flat.Unit * Settings.PeekLead
+                    local parameters = RaycastParams.new()
+                    parameters.FilterType = Enum.RaycastFilterType.Exclude
+                    parameters.FilterDescendantsInstances = getCharacter() and {getCharacter()} or {}
+                    parameters.IgnoreWater = true
+                    local coverHit = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, parameters)
+                    local coverLeft = coverHit and (part.Position - coverHit.Position).Magnitude or math.huge
+                    if coverLeft <= Settings.PeekCover and cameraSees(ahead, character) then
+                        local projected, onScreen = Camera:WorldToViewportPoint(ahead)
+                        if onScreen and projected.Z > 0 then
+                            local pixels = (Vector2.new(projected.X, projected.Y) - center).Magnitude
+                            if pixels <= Settings.FOV and pixels < bestPixels then
+                                bestPixels = pixels
+                                bestPoint = ahead
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return bestPoint
+end
+local function updatePeekPrefire()
+    if not Settings.PeekPrefire or Settings.FreecamEnabled or UserInputService:GetFocusedTextBox() then
+        return
+    end
+    local peekPoint = findPeekPoint()
+    if not peekPoint then
+        return
+    end
+    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, peekPoint)
+    tryActivateTool(peekPoint)
+end
 local function updateTriggerbot()
     if not Settings.TriggerbotEnabled or Settings.FreecamEnabled
         or UserInputService:GetFocusedTextBox() then
@@ -1604,28 +1731,7 @@ local function updateTriggerbot()
     -- Reaction delay: the crosshair must rest on a target before the first shot.
     State.TriggerSince = State.TriggerSince or os.clock()
     if os.clock() - State.TriggerSince < Settings.TriggerDelay / 1000 then return end
-    local tool = character:FindFirstChildOfClass("Tool")
-    if not tool or not tool.Enabled or (tool.RequiresHandle and not tool:FindFirstChild("Handle")) then
-        releaseTriggerTool()
-        if os.clock() - lastToolMessage > 3 then
-            lastToolMessage = os.clock()
-            log("Triggerbot: equip an enabled weapon Tool with its required Handle.")
-        end
-        return
-    end
-    if activeTriggerTool and activeTriggerTool ~= tool then releaseTriggerTool() end
-    local now = os.clock()
-    if now - State.LastTrigger < Settings.TriggerCooldown then return end
-    State.LastTrigger = now
-    releaseTriggerTool()
-    local ok, err = pcall(function() tool:Activate() end)
-    if ok then
-        activeTriggerTool = tool
-        triggerEvent:Fire(target) -- optional local telemetry; activation above fires the Tool
-    elseif now - lastToolMessage > 3 then
-        lastToolMessage = now
-        log("Tool activation failed: " .. tostring(err))
-    end
+    tryActivateTool(target)
 end
 
 -- =========================================================
@@ -2271,6 +2377,28 @@ connect(UserInputService.InputEnded, function(input)
         State.RightMouseDown = false
     end
 end)
+local function setCombatPreset(enabled)
+    if enabled and Settings.FreecamEnabled then
+        log("Exit Freecam before enabling Auto Aim.")
+        combatPresetButton.Text = "Enemy Combat Preset: OFF"
+        return
+    end
+    Settings.AimEnabled = enabled
+    Settings.ESPEnabled = enabled
+    Settings.ESPLines = enabled
+    Settings.TeamCheck = enabled
+    State.StickyTarget = nil
+    aimButton.Text = "Auto Aim: " .. (enabled and "ON" or "OFF")
+    espButton.Text = "Player Highlights: " .. (enabled and "ON" or "OFF")
+    espLinesButton.Text = "Tracer Lines: " .. (enabled and "ON" or "OFF")
+    teamCheckButton.Text = "Team Check: " .. (enabled and "ON" or "OFF")
+    combatPresetButton.Text = "Enemy Combat Preset: " .. (enabled and "ON" or "OFF")
+    refreshESP()
+    log(enabled and "Enemy combat preset on." or "Enemy combat preset off.")
+end
+connect(combatPresetButton.MouseButton1Click, function()
+    setCombatPreset(not Settings.AimEnabled or not Settings.ESPEnabled or not Settings.ESPLines)
+end)
 connect(aimButton.MouseButton1Click, function()
         if Settings.FreecamEnabled then log("Exit Freecam before enabling Auto Aim."); return end
         Settings.AimEnabled =
@@ -2303,6 +2431,10 @@ connect(triggerButton.MouseButton1Click, function()
                     or "OFF"
             )
     end)
+connect(peekButton.MouseButton1Click, function()
+    Settings.PeekPrefire = not Settings.PeekPrefire
+    peekButton.Text = toggleText("Peek Prefire", Settings.PeekPrefire)
+end)
 connect(espButton.MouseButton1Click, function()
         Settings.ESPEnabled =
             not Settings.ESPEnabled
@@ -2584,6 +2716,7 @@ connect(RunService.RenderStepped, function(dt)
             Settings.AimEnabled
         updateAim(dt)
         updateTriggerbot()
+        updatePeekPrefire()
         updateDrawings()
         applyWalkSpeed()
         updateFly(dt)
@@ -2622,9 +2755,9 @@ connect(LocalPlayer.CharacterAdded, function()
 
 -- =========================================================
 showPage("Menu")
+setCombatPreset(true)
 log("Panel ready.")
-log("Use the tabs to switch tests.")
-log("Right Shift hides and shows the panel.")
+log("Enemy combat preset is on. Right Shift hides the panel.")
 
 -- Focus loss clears held inputs; the menu remains clickable during Freecam.
 connect(UserInputService.InputBegan, function(input, processed)
@@ -2668,10 +2801,12 @@ end
 local function disableAll()
     Settings.AimEnabled = false
     Settings.TriggerbotEnabled = false
+    Settings.PeekPrefire = false
     Settings.ESPEnabled = false
     Settings.TargetedESPEnabled = false
     Settings.ESPLines = false
     Settings.ESPBoxes = false
+    Settings.TeamCheck = false
     Settings.InventoryInspectEnabled = false
     Settings.SpeedEnabled = false
     Settings.FlyEnabled = false
@@ -2692,9 +2827,12 @@ local function disableAll()
     updateInventoryInspection()
     aimButton.Text = "Auto Aim: OFF"
     triggerButton.Text = "Triggerbot (Equipped Tool): OFF"
+    peekButton.Text = "Peek Prefire: OFF"
     espButton.Text = "Player Highlights: OFF"
     targetedESPButton.Text = "Targeted ESP: OFF"
     espLinesButton.Text = "Tracer Lines: OFF"
+    teamCheckButton.Text = "Team Check: OFF"
+    combatPresetButton.Text = "Enemy Combat Preset: OFF"
     espBoxesButton.Text = "2D Boxes: OFF"
     xrayButton.Text = "X-Ray Walls: OFF"
     hitboxButton.Text = "Hitbox Expander: OFF"
