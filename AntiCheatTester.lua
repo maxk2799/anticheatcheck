@@ -95,6 +95,7 @@ local State = {
     OriginalCollisions = {},
     LastTrigger = 0,
     TriggerSince = nil,
+    PeekHidden = {},
     StickyTarget = nil,
     RightMouseDown = false,
     PlayerLabels = {},
@@ -240,7 +241,7 @@ do
     subtitle.TextSize = 12
     subtitle.TextXAlignment = Enum.TextXAlignment.Left
     subtitle.TextColor3 = Theme.Muted
-    subtitle.Text = "Right Shift hides this panel"
+    subtitle.Text = "Right Shift hides the panel and overlays"
     ink(subtitle)
     subtitle.Parent = title
     local tabLayout = Instance.new("UIListLayout")
@@ -1164,6 +1165,13 @@ for _, x in ipairs({-1, 1}) do
     end
 end
 local function updateDrawings()
+    if not main.Visible then
+        for _, entry in pairs(State.Drawings) do
+            entry.Line.Visible = false
+            entry.Box.Visible = false
+        end
+        return
+    end
     if not Settings.ESPLines and not Settings.ESPBoxes then
         if next(State.Drawings) then
             clearDrawings()
@@ -1337,6 +1345,7 @@ local function createPlayerLabel(player, targeted)
     billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
     billboard.MaxDistance = 10000
+    billboard.Enabled = main.Visible
     billboard.Parent = gui
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Name = "Username"
@@ -1394,6 +1403,7 @@ local function refreshESP()
             highlight.FillTransparency = targeted and 0.35 or 0.7
             highlight.OutlineTransparency = 0
             highlight.Parent = player.Character
+            highlight.Enabled = main.Visible
             State.Highlights[player] = highlight
             if Settings.ESPLabelsEnabled then createPlayerLabel(player, targeted) end
         end
@@ -1554,7 +1564,7 @@ local function visibleTools(container)
 end
 
 local function updateInventoryInspection()
-    inventoryPanel.Visible = Settings.InventoryInspectEnabled
+    inventoryPanel.Visible = Settings.InventoryInspectEnabled and main.Visible
     if not Settings.InventoryInspectEnabled then return end
     local character = getCrosshairTarget()
     local player = character and Players:GetPlayerFromCharacter(character)
@@ -1632,12 +1642,24 @@ local function tryActivateTool(target)
     if ok then
         activeTriggerTool = tool
         triggerEvent:Fire(target)
-        return true
     elseif now - lastToolMessage > 3 then
         lastToolMessage = now
         log("Tool activation failed: " .. tostring(err))
     end
-    return false
+    -- Studio guns often listen for a real click instead of Tool.Activated.
+    local virtualInput = game:GetService("VirtualInputManager")
+    local center = Camera and Camera.ViewportSize / 2
+    if virtualInput and center then
+        pcall(function()
+            virtualInput:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 0)
+        end)
+        task.delay(0.05, function()
+            pcall(function()
+                virtualInput:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 0)
+            end)
+        end)
+    end
+    return ok
 end
 -- True when a ray from the camera reaches the point, or hits the given character first.
 local function cameraSees(position, model)
@@ -1674,25 +1696,49 @@ local function findPeekPoint()
         if player ~= LocalPlayer and not sameTeam(player) then
             local character = player.Character
             local part = character and isAlive(character) and getAimPart(character)
-            if part and not cameraSees(part.Position, character) then
-                local velocity = part.AssemblyLinearVelocity
-                local flat = Vector3.new(velocity.X, 0, velocity.Z)
-                if flat.Magnitude >= 4 then
-                    local ahead = part.Position + flat.Unit * Settings.PeekLead
-                    local parameters = RaycastParams.new()
-                    parameters.FilterType = Enum.RaycastFilterType.Exclude
-                    parameters.FilterDescendantsInstances = getCharacter() and {getCharacter()} or {}
-                    parameters.IgnoreWater = true
-                    local coverHit = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, parameters)
-                    local coverLeft = coverHit and (part.Position - coverHit.Position).Magnitude or math.huge
-                    if coverLeft <= Settings.PeekCover and cameraSees(ahead, character) then
-                        local projected, onScreen = Camera:WorldToViewportPoint(ahead)
-                        if onScreen and projected.Z > 0 then
-                            local pixels = (Vector2.new(projected.X, projected.Y) - center).Magnitude
-                            if pixels <= Settings.FOV and pixels < bestPixels then
-                                bestPixels = pixels
-                                bestPoint = ahead
+            if part then
+                local hidden = not cameraSees(part.Position, character)
+                local wasHidden = State.PeekHidden[player] == true
+                State.PeekHidden[player] = hidden
+                local aimAt = nil
+                if not hidden and wasHidden then
+                    aimAt = part.Position
+                elseif hidden then
+                    for _, limbName in ipairs({"Head", "UpperTorso", "Torso", "RightUpperArm", "LeftUpperArm", "Right Arm", "Left Arm"}) do
+                        local limb = character:FindFirstChild(limbName)
+                        if limb and limb:IsA("BasePart") and cameraSees(limb.Position, character) then
+                            aimAt = limb.Position
+                            break
+                        end
+                    end
+                    if not aimAt then
+                        local velocity = part.AssemblyLinearVelocity
+                        local flat = Vector3.new(velocity.X, 0, velocity.Z)
+                        if flat.Magnitude < 4 then
+                            local look = part.CFrame.LookVector
+                            flat = Vector3.new(look.X, 0, look.Z)
+                        end
+                        if flat.Magnitude > 0.1 then
+                            local ahead = part.Position + flat.Unit * Settings.PeekLead
+                            local parameters = RaycastParams.new()
+                            parameters.FilterType = Enum.RaycastFilterType.Exclude
+                            parameters.FilterDescendantsInstances = getCharacter() and {getCharacter()} or {}
+                            parameters.IgnoreWater = true
+                            local coverHit = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, parameters)
+                            local coverLeft = coverHit and (part.Position - coverHit.Position).Magnitude or math.huge
+                            if coverLeft <= Settings.PeekCover and cameraSees(ahead, character) then
+                                aimAt = ahead
                             end
+                        end
+                    end
+                end
+                if aimAt then
+                    local projected, onScreen = Camera:WorldToViewportPoint(aimAt)
+                    if onScreen and projected.Z > 0 then
+                        local pixels = (Vector2.new(projected.X, projected.Y) - center).Magnitude
+                        if pixels <= math.max(Settings.FOV, 360) and pixels < bestPixels then
+                            bestPixels = pixels
+                            bestPoint = aimAt
                         end
                     end
                 end
@@ -1724,6 +1770,25 @@ local function updateTriggerbot()
     local humanoid = getHumanoid()
     if not character or not humanoid or humanoid.Health <= 0 then releaseTriggerTool(); return end
     local target = getCrosshairTarget()
+    if not target then
+        local center = Camera.ViewportSize / 2
+        local closestPixels = 48
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and not sameTeam(player) and player.Character and isAlive(player.Character) then
+                local part = getAimPart(player.Character)
+                if part then
+                    local projected, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen and projected.Z > 0 then
+                        local pixels = (Vector2.new(projected.X, projected.Y) - center).Magnitude
+                        if pixels < closestPixels and cameraSees(part.Position, player.Character) then
+                            closestPixels = pixels
+                            target = player.Character
+                        end
+                    end
+                end
+            end
+        end
+    end
     local targetPlayer = target and Players:GetPlayerFromCharacter(target)
     if not target or (targetPlayer and sameTeam(targetPlayer)) then
         releaseTriggerTool(); State.TriggerSince = nil; return
@@ -2594,8 +2659,29 @@ connect(UserInputService.InputBegan, function(input, processed)
             input.KeyCode
             == Enum.KeyCode.RightShift
         then
-            main.Visible =
-                not main.Visible
+            main.Visible = not main.Visible
+            drawLayer.Visible = main.Visible
+            if not main.Visible then
+                inventoryPanel.Visible = false
+                fovCircle.Visible = false
+                for _, highlight in pairs(State.Highlights) do
+                    highlight.Enabled = false
+                end
+                for _, entry in pairs(State.PlayerLabels) do
+                    entry.Gui.Enabled = false
+                end
+                for _, drawing in pairs(State.Drawings) do
+                    drawing.Line.Visible = false
+                    drawing.Box.Visible = false
+                end
+            else
+                for _, highlight in pairs(State.Highlights) do
+                    highlight.Enabled = true
+                end
+                for _, entry in pairs(State.PlayerLabels) do
+                    entry.Gui.Enabled = true
+                end
+            end
             return
         end
         if Settings.FreecamEnabled and input.KeyCode == Enum.KeyCode.F
@@ -2713,7 +2799,7 @@ connect(RunService.RenderStepped, function(dt)
                 Settings.FOV * 2
             )
         fovCircle.Visible =
-            Settings.AimEnabled
+            main.Visible and Settings.AimEnabled
         updateAim(dt)
         updateTriggerbot()
         updatePeekPrefire()
@@ -2757,7 +2843,7 @@ connect(LocalPlayer.CharacterAdded, function()
 showPage("Menu")
 setCombatPreset(true)
 log("Panel ready.")
-log("Enemy combat preset is on. Right Shift hides the panel.")
+log("Enemy combat preset is on. Right Shift hides overlays; tests keep running.")
 
 -- Focus loss clears held inputs; the menu remains clickable during Freecam.
 connect(UserInputService.InputBegan, function(input, processed)
