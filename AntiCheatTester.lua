@@ -764,6 +764,11 @@ makeLabel(
     menuPage,
     "Auto Aim, highlights, and tracers for enemies."
 )
+local firePresetButton = makeButton(menuPage, "Trigger and Prefire: OFF")
+makeLabel(
+    menuPage,
+    "Triggerbot and peek prefire. Separate from the combat preset."
+)
 makeLabel(
     menuPage,
     "Pick a category, or use the tabs above."
@@ -2461,6 +2466,21 @@ end
 connect(combatPresetButton.MouseButton1Click, function()
     setCombatPreset(not Settings.AimEnabled or not Settings.ESPEnabled or not Settings.ESPLines)
 end)
+local function setFirePreset(enabled)
+    Settings.TriggerbotEnabled = enabled
+    Settings.PeekPrefire = enabled
+    if not enabled then
+        releaseTriggerTool()
+        State.TriggerSince = nil
+    end
+    triggerButton.Text = "Triggerbot (Equipped Tool): " .. (enabled and "ON" or "OFF")
+    peekButton.Text = "Peek Prefire: " .. (enabled and "ON" or "OFF")
+    firePresetButton.Text = "Trigger and Prefire: " .. (enabled and "ON" or "OFF")
+    log(enabled and "Trigger and prefire on." or "Trigger and prefire off.")
+end
+connect(firePresetButton.MouseButton1Click, function()
+    setFirePreset(not Settings.TriggerbotEnabled or not Settings.PeekPrefire)
+end)
 connect(aimButton.MouseButton1Click, function()
         if Settings.FreecamEnabled then log("Exit Freecam before enabling Auto Aim."); return end
         Settings.AimEnabled =
@@ -2916,6 +2936,7 @@ local function disableAll()
     espLinesButton.Text = "Tracer Lines: OFF"
     teamCheckButton.Text = "Team Check: OFF"
     combatPresetButton.Text = "Enemy Combat Preset: OFF"
+    firePresetButton.Text = "Trigger and Prefire: OFF"
     espBoxesButton.Text = "2D Boxes: OFF"
     xrayButton.Text = "X-Ray Walls: OFF"
     hitboxButton.Text = "Hitbox Expander: OFF"
