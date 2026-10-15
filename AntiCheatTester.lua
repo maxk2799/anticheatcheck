@@ -4,7 +4,8 @@
     Place in:
     StarterPlayer > StarterPlayerScripts
     Categories:
-        Combat
+        Combat (aimbot, triggerbot)
+        Visuals (ESP, tracers, boxes, x-ray, hitboxes)
         Movement
         Stats
     This does NOT:
@@ -14,6 +15,9 @@
 ]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+if not RunService:IsStudio() then
+    return
+end
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local LocalPlayer = Players.LocalPlayer
@@ -43,6 +47,23 @@ local Settings = {
     FreecamSpeed = 75,
     FOV = 200,
     Smoothness = 1,
+    AimPart = "Head", -- Head / Chest / Root
+    AimMode = "Smooth", -- Smooth / Snap / Soft
+    AimKey = "Always", -- Always / Hold RMB
+    AimPriority = "Crosshair", -- Crosshair / Distance / Health
+    StickyAim = false,
+    TeamCheck = false,
+    SoftStrength = 35, -- percent of normal pull
+    Prediction = 0, -- seconds of velocity lead
+    TriggerKey = "Always", -- Always / Hold RMB
+    TriggerDelay = 0, -- ms before the first shot
+    TriggerCooldown = 0.12,
+    -- Visuals
+    ESPLines = false,
+    ESPBoxes = false,
+    XRayEnabled = false,
+    HitboxEnabled = false,
+    HitboxSize = 10,
     -- Movement
     SpeedEnabled = false,
     WalkSpeed = 100,
@@ -53,9 +74,12 @@ local Settings = {
     JumpPower = 100,
     InfiniteJump = false,
     TeleportDistance = 50,
+    ClickTeleport = false,
+    CFrameSpeedEnabled = false,
+    CFrameSpeed = 60,
+    DashSpeed = 200,
     SpinEnabled = false,
-    SpinSpeed = 3000, -- degrees/sec; 50000 maximum
-    TriggerCooldown = 0.12
+    SpinSpeed = 3000 -- degrees/sec; 50000 maximum
 }
 local State = {
     FlyKeys = {},
@@ -67,8 +91,14 @@ local State = {
     HumanoidDefaults = {},
     OriginalCollisions = {},
     LastTrigger = 0,
+    TriggerSince = nil,
+    StickyTarget = nil,
+    RightMouseDown = false,
     PlayerLabels = {},
-    Highlights = {}
+    Highlights = {},
+    Drawings = {},
+    HitboxOriginals = {},
+    XRayParts = {}
 }
 
 -- =========================================================
@@ -98,6 +128,9 @@ local function isAlive(model)
     end
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     return humanoid ~= nil and humanoid.Health > 0
+end
+local function sameTeam(player)
+    return Settings.TeamCheck and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team
 end
 
 -- =========================================================
@@ -289,9 +322,14 @@ local function showPage(name)
     end
 end
 local navInfo = {
-    ["Combat Tests"] = "Aim, triggerbot, ESP, and inventory",
-    ["Movement Tests"] = "Speed, fly, noclip, jump, and spin",
+    ["Combat Tests"] = "Aimbot modes and triggerbot",
+    ["Visual Tests"] = "ESP, tracers, boxes, x-ray, hitboxes",
+    ["Movement Tests"] = "Speed, fly, noclip, teleports, and spin",
     ["Stats Scanner"] = "Scan and edit local player stats",
+}
+local dangerButtons = {
+    ["STOP SPIN"] = true,
+    ["Disable All Tests"] = true,
 }
 local function makeButton(parent, text)
     local button = Instance.new("TextButton")
@@ -397,7 +435,7 @@ local function makeButton(parent, text)
         button.MouseLeave:Connect(function()
             button.BackgroundColor3 = Theme.Raised
         end)
-    elseif text == "STOP SPIN" then
+    elseif dangerButtons[text] then
         button.Size = UDim2.new(1, -4, 0, 36)
         button.BackgroundColor3 = Theme.Danger
         button.TextColor3 = Color3.fromRGB(32, 8, 12)
@@ -574,10 +612,60 @@ local function makeInlineField(parent, boxText, buttonText)
     addCorner(button, 8)
     return box, button
 end
+local function makeCycle(parent, labelText, options, initial, onChange)
+    local button = Instance.new("TextButton")
+    button.AutoButtonColor = false
+    button.BorderSizePixel = 0
+    button.Size = UDim2.new(1, -4, 0, 40)
+    button.BackgroundColor3 = Theme.Raised
+    button.Text = ""
+    button.LayoutOrder = #parent:GetChildren()
+    button.Parent = parent
+    addCorner(button, 8)
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Position = UDim2.fromOffset(12, 0)
+    nameLabel.Size = UDim2.new(1, -130, 1, 0)
+    nameLabel.Font = Enum.Font.GothamMedium
+    nameLabel.TextSize = 13
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.TextColor3 = Theme.Text
+    nameLabel.Text = labelText
+    nameLabel.Parent = button
+    local pill = Instance.new("Frame")
+    pill.AnchorPoint = Vector2.new(1, 0.5)
+    pill.Position = UDim2.new(1, -8, 0.5, 0)
+    pill.Size = UDim2.fromOffset(104, 24)
+    pill.BackgroundColor3 = Color3.fromRGB(20, 48, 66)
+    pill.BorderSizePixel = 0
+    pill.Parent = button
+    addCorner(pill, 12)
+    local pillText = Instance.new("TextLabel")
+    pillText.BackgroundTransparency = 1
+    pillText.Size = UDim2.fromScale(1, 1)
+    pillText.Font = Enum.Font.GothamBold
+    pillText.TextSize = 11
+    pillText.TextColor3 = Theme.Accent
+    pillText.Parent = pill
+    local index = table.find(options, initial) or 1
+    pillText.Text = options[index]
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = Theme.RaisedHover
+    end)
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = Theme.Raised
+    end)
+    connect(button.MouseButton1Click, function()
+        index = index % #options + 1
+        pillText.Text = options[index]
+        onChange(options[index])
+    end)
+    return button
+end
 local function addTab(name, label, order)
     local tab = Instance.new("TextButton")
     tab.Name = name
-    tab.Size = UDim2.fromOffset(104, 26)
+    tab.Size = UDim2.fromOffset(84, 26)
     tab.BackgroundColor3 = Theme.Accent
     tab.BackgroundTransparency = 1
     tab.BorderSizePixel = 0
@@ -596,8 +684,9 @@ local function addTab(name, label, order)
 end
 addTab("Menu", "Home", 1)
 addTab("Combat", "Combat", 2)
-addTab("Movement", "Move", 3)
-addTab("Stats", "Stats", 4)
+addTab("Visuals", "Visuals", 3)
+addTab("Movement", "Move", 4)
+addTab("Stats", "Stats", 5)
 
 -- =========================================================
 -- MAIN MENU
@@ -623,40 +712,64 @@ local movementMenuButton =
 -- COMBAT PAGE
 
 -- =========================================================
+local visualsMenuButton = makeButton(menuPage, "Visual Tests")
 local statsMenuButton = makeButton(menuPage, "Stats Scanner")
-local combatPage =
-    createPage("Combat")
-local combatBack =
-    makeButton(
-        combatPage,
-        "< Back"
-    )
-makeLabel(
-    combatPage,
-    "COMBAT TESTS"
-)
-local aimButton =
-    makeButton(
-        combatPage,
-        "Auto Aim: OFF"
-    )
-local triggerButton =
-    makeButton(
-        combatPage,
-        "Triggerbot (Equipped Tool): OFF"
-    )
-local espButton =
-    makeButton(
-        combatPage,
-        "Walls / ESP: OFF"
-    )
-local wallCheckButton =
-    makeButton(
-        combatPage,
-        "Aim Wall Check: ON"
-    )
+local disableAllButton = makeButton(menuPage, "Disable All Tests")
+local combatPage = createPage("Combat")
+local combatBack = makeButton(combatPage, "< Back")
+makeLabel(combatPage, "AIMBOT CONTROLS")
+local aimButton = makeButton(combatPage, "Auto Aim: OFF")
+makeCycle(combatPage, "Target part", {"Head", "Chest", "Root"}, Settings.AimPart, function(value)
+    Settings.AimPart = value
+end)
+makeCycle(combatPage, "Aim mode", {"Smooth", "Snap", "Soft"}, Settings.AimMode, function(value)
+    Settings.AimMode = value
+end)
+makeCycle(combatPage, "Activation", {"Always", "Hold RMB"}, Settings.AimKey, function(value)
+    Settings.AimKey = value
+    State.StickyTarget = nil
+end)
+makeCycle(combatPage, "Target priority", {"Crosshair", "Distance", "Health"}, Settings.AimPriority, function(value)
+    Settings.AimPriority = value
+    State.StickyTarget = nil
+end)
+local stickyButton = makeButton(combatPage, "Sticky Aim: OFF")
+local teamCheckButton = makeButton(combatPage, "Team Check: OFF")
+local wallCheckButton = makeButton(combatPage, "Aim Wall Check: ON")
 local fovLabel, fovMinus, fovPlus = makeStepper(combatPage, "FOV: " .. Settings.FOV)
 local smoothLabel, smoothMinus, smoothPlus = makeStepper(combatPage, "Smoothness: " .. Settings.Smoothness)
+local softLabel, softMinus, softPlus = makeStepper(combatPage, "Soft Aim Strength: " .. Settings.SoftStrength .. "%")
+local predictionLabel, predictionMinus, predictionPlus =
+    makeStepper(combatPage, "Prediction: " .. Settings.Prediction .. "s")
+makeLabel(combatPage, "Soft mode pulls gently toward the target; Snap locks instantly.")
+makeLabel(combatPage, "TRIGGERBOT")
+local triggerButton = makeButton(combatPage, "Triggerbot (Equipped Tool): OFF")
+makeCycle(combatPage, "Activation", {"Always", "Hold RMB"}, Settings.TriggerKey, function(value)
+    Settings.TriggerKey = value
+    State.TriggerSince = nil
+end)
+local triggerDelayLabel, triggerDelayMinus, triggerDelayPlus =
+    makeStepper(combatPage, "Reaction Delay: " .. Settings.TriggerDelay .. " ms")
+local triggerRateLabel, triggerRateMinus, triggerRatePlus =
+    makeStepper(combatPage, "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000) .. " ms")
+makeLabel(combatPage, "Fires the equipped Tool while the crosshair is on a player.")
+
+-- =========================================================
+-- VISUALS PAGE
+
+-- =========================================================
+local visualsPage = createPage("Visuals")
+local visualsBack = makeButton(visualsPage, "< Back")
+makeLabel(visualsPage, "ESP OVERLAYS")
+local espButton = makeButton(visualsPage, "Player Highlights: OFF")
+local espLinesButton = makeButton(visualsPage, "Tracer Lines: OFF")
+local espBoxesButton = makeButton(visualsPage, "2D Boxes: OFF")
+local espLabelsButton = makeButton(visualsPage, "Username / HP Labels: ON")
+local xrayButton = makeButton(visualsPage, "X-Ray Walls: OFF")
+makeLabel(visualsPage, "HITBOX EXPANDER")
+local hitboxButton = makeButton(visualsPage, "Hitbox Expander: OFF")
+local hitboxLabel, hitboxMinus, hitboxPlus = makeStepper(visualsPage, "Hitbox Size: " .. Settings.HitboxSize)
+makeLabel(visualsPage, "Enlarges other players' root parts on this client only.")
 
 -- =========================================================
 -- MOVEMENT PAGE
@@ -720,6 +833,15 @@ local teleportButton =
         movementPage,
         "Teleport Forward"
     )
+local teleportTargetButton = makeButton(movementPage, "Teleport to ESP Target")
+local clickTeleportButton = makeButton(movementPage, "Ctrl+Click Teleport: OFF")
+makeLabel(movementPage, "CFRAME MOVEMENT")
+local cframeSpeedButton = makeButton(movementPage, "CFrame Speed: OFF")
+local cframeSpeedLabel, cframeSpeedMinus, cframeSpeedPlus =
+    makeStepper(movementPage, "CFrame Speed: " .. Settings.CFrameSpeed)
+makeLabel(movementPage, "Moves the root by CFrame each frame instead of WalkSpeed.")
+local dashLabel, dashMinus, dashPlus = makeStepper(movementPage, "Dash Velocity: " .. Settings.DashSpeed)
+local dashButton = makeButton(movementPage, "Dash Forward")
 
 -- =========================================================
 -- FOV DISPLAY
@@ -755,10 +877,25 @@ local function getAimPart(model)
     if not model then
         return nil
     end
+    if Settings.AimPart == "Chest" then
+        return model:FindFirstChild("UpperTorso")
+            or model:FindFirstChild("Torso")
+            or model:FindFirstChild("HumanoidRootPart")
+    elseif Settings.AimPart == "Root" then
+        return model:FindFirstChild("HumanoidRootPart")
+            or model:FindFirstChild("Head")
+    end
     return model:FindFirstChild("Head")
-        or model:FindFirstChild(
-            "HumanoidRootPart"
-        )
+        or model:FindFirstChild("HumanoidRootPart")
+end
+local function predictedPosition(part)
+    if Settings.Prediction <= 0 then
+        return part.Position
+    end
+    return part.Position + part.AssemblyLinearVelocity * Settings.Prediction
+end
+local function aimKeyHeld()
+    return Settings.AimKey == "Always" or State.RightMouseDown
 end
 local function targetVisible(part, model)
     if not Settings.WallCheck then
@@ -787,67 +924,65 @@ local function targetVisible(part, model)
     return result.Instance:
         IsDescendantOf(model)
 end
+-- Pixel distance from the crosshair, or nil when the part is off screen / outside the FOV circle.
+local function crosshairDistance(part, center, limit)
+    local point, onScreen = Camera:WorldToViewportPoint(part.Position)
+    if not onScreen or point.Z <= 0 then
+        return nil
+    end
+    local distance = (Vector2.new(point.X, point.Y) - center).Magnitude
+    if distance > limit then
+        return nil
+    end
+    return distance
+end
+local function candidateScore(part, center)
+    local pixels = crosshairDistance(part, center, Settings.FOV)
+    if not pixels then
+        return nil
+    end
+    if Settings.AimPriority == "Distance" then
+        return (part.Position - Camera.CFrame.Position).Magnitude
+    elseif Settings.AimPriority == "Health" then
+        local humanoid = part.Parent and part.Parent:FindFirstChildOfClass("Humanoid")
+        return humanoid and humanoid.Health or math.huge
+    end
+    return pixels
+end
 local function acquireTarget()
     Camera = workspace.CurrentCamera
     if not Camera then
         return nil, nil
     end
-    local center =
-        Camera.ViewportSize / 2
-    local bestModel = nil
-    local bestPart = nil
-    local closest =
-        Settings.FOV
-    for _, player in ipairs(
-        Players:GetPlayers()
-    ) do
-        if player ~= LocalPlayer then
-            local character =
-                player.Character
-            if
-                character
-                and isAlive(character)
-            then
-                local part =
-                    getAimPart(character)
+    local center = Camera.ViewportSize / 2
+    if Settings.StickyAim and State.StickyTarget then
+        local model = State.StickyTarget
+        local player = Players:GetPlayerFromCharacter(model)
+        local part = getAimPart(model)
+        if player and player.Parent and isAlive(model) and part and not sameTeam(player)
+            and crosshairDistance(part, center, Settings.FOV * 1.5)
+            and targetVisible(part, model) then
+            return model, part
+        end
+        State.StickyTarget = nil
+    end
+    local bestModel, bestPart, bestScore = nil, nil, math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not sameTeam(player) then
+            local character = player.Character
+            if character and isAlive(character) then
+                local part = getAimPart(character)
                 if part then
-                    local point,
-                        onScreen =
-                        Camera:
-                            WorldToViewportPoint(
-                                part.Position
-                            )
-                    if
-                        onScreen
-                        and point.Z > 0
-                    then
-                        local distance =
-                            (
-                                Vector2.new(
-                                    point.X,
-                                    point.Y
-                                )
-                                - center
-                            ).Magnitude
-                        if
-                            distance
-                                <= closest
-                            and targetVisible(
-                                part,
-                                character
-                            )
-                        then
-                            closest =
-                                distance
-                            bestModel =
-                                character
-                            bestPart =
-                                part
-                        end
+                    local score = candidateScore(part, center)
+                    if score and score < bestScore and targetVisible(part, character) then
+                        bestScore, bestModel, bestPart = score, character, part
                     end
                 end
             end
         end
+    end
+    if Settings.StickyAim then
+        State.StickyTarget = bestModel
     end
     return bestModel, bestPart
 end
@@ -855,33 +990,25 @@ local function updateAim(dt)
     if not Settings.AimEnabled or Settings.FreecamEnabled then
         return
     end
-    local model, part =
-        acquireTarget()
+    if not aimKeyHeld() then
+        State.StickyTarget = nil
+        return
+    end
+    local model, part = acquireTarget()
     if not model or not part then
         return
     end
-    local desired =
-        CFrame.lookAt(
-            Camera.CFrame.Position,
-            part.Position
-        )
-    local speed =
-        math.clamp(
-            20 / Settings.Smoothness,
-            0.5,
-            30
-        )
-    local alpha =
-        math.clamp(
-            dt * speed,
-            0,
-            1
-        )
-    Camera.CFrame =
-        Camera.CFrame:Lerp(
-            desired,
-            alpha
-        )
+    local desired = CFrame.lookAt(Camera.CFrame.Position, predictedPosition(part))
+    if Settings.AimMode == "Snap" then
+        Camera.CFrame = desired
+        return
+    end
+    local speed = math.clamp(20 / Settings.Smoothness, 0.5, 30)
+    local alpha = math.clamp(dt * speed, 0, 1)
+    if Settings.AimMode == "Soft" then
+        alpha = alpha * (Settings.SoftStrength / 100)
+    end
+    Camera.CFrame = Camera.CFrame:Lerp(desired, alpha)
 end
 
 -- =========================================================
@@ -902,19 +1029,211 @@ local function clearESP()
 end
 -- Targeted ESP works independently of normal ESP. With both enabled,
 -- the selected player is gold and everyone else is blue.
-makeLabel(combatPage, "TARGETED ESP (gold highlight)")
-makeLabel(combatPage, "Enter exact username or UserId (not display name)")
-local targetESPBox = makeTextBox(combatPage, "")
+makeLabel(visualsPage, "TARGETED ESP (GOLD)")
+makeLabel(visualsPage, "Enter exact username or UserId (not display name)")
+local targetESPBox = makeTextBox(visualsPage, "")
 targetESPBox.PlaceholderText = "Username or UserId"
-local targetESPLabel = makeLabel(combatPage, "ESP target: none")
-local selectESPButton = makeButton(combatPage, "Select ESP Player")
-local nextESPButton = makeButton(combatPage, "Next ESP Player")
-local targetedESPButton = makeButton(combatPage, "Targeted ESP: OFF")
-local clearESPButton = makeButton(combatPage, "Clear ESP Target")
+local targetESPLabel = makeLabel(visualsPage, "ESP target: none")
+local selectESPButton = makeButton(visualsPage, "Select ESP Player")
+local nextESPButton = makeButton(visualsPage, "Next ESP Player")
+local targetedESPButton = makeButton(visualsPage, "Targeted ESP: OFF")
+local clearESPButton = makeButton(visualsPage, "Clear ESP Target")
+makeLabel(visualsPage, "INVENTORY")
+local inventoryButton = makeButton(visualsPage, "Look-at Inventory: OFF")
+makeLabel(visualsPage, "Aim the screen center at a player; visible Tools only.")
 
-local espLabelsButton = makeButton(combatPage, "Username / HP Labels: ON")
-local inventoryButton = makeButton(combatPage, "Look-at Inventory: OFF")
-makeLabel(combatPage, "Inventory: aim screen center at a player; visible Tools only.")
+-- 2D tracers and boxes are redrawn every frame from screen projections.
+local drawLayer = Instance.new("Frame")
+drawLayer.Name = "Drawings"
+drawLayer.Size = UDim2.fromScale(1, 1)
+drawLayer.BackgroundTransparency = 1
+drawLayer.ZIndex = 0
+drawLayer.Parent = gui
+local function getDrawing(player)
+    local entry = State.Drawings[player]
+    if entry then
+        return entry
+    end
+    local line = Instance.new("Frame")
+    line.AnchorPoint = Vector2.new(0.5, 0.5)
+    line.BorderSizePixel = 0
+    line.Visible = false
+    line.Parent = drawLayer
+    local box = Instance.new("Frame")
+    box.BackgroundTransparency = 1
+    box.BorderSizePixel = 0
+    box.Visible = false
+    box.Parent = drawLayer
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1.5
+    stroke.Parent = box
+    entry = {Line = line, Box = box, Stroke = stroke}
+    State.Drawings[player] = entry
+    return entry
+end
+local function destroyDrawing(player, entry)
+    entry.Line:Destroy()
+    entry.Box:Destroy()
+    State.Drawings[player] = nil
+end
+local function clearDrawings()
+    for player, entry in pairs(State.Drawings) do
+        destroyDrawing(player, entry)
+    end
+end
+local boxCorners = {}
+for _, x in ipairs({-1, 1}) do
+    for _, y in ipairs({-1, 1}) do
+        for _, z in ipairs({-1, 1}) do
+            table.insert(boxCorners, Vector3.new(x, y, z))
+        end
+    end
+end
+local function updateDrawings()
+    if not Settings.ESPLines and not Settings.ESPBoxes then
+        if next(State.Drawings) then
+            clearDrawings()
+        end
+        return
+    end
+    local viewport = Camera.ViewportSize
+    local origin = Vector2.new(viewport.X / 2, viewport.Y)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local entry = getDrawing(player)
+            local character = player.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            local shown = false
+            if root and isAlive(character) and not sameTeam(player) then
+                local point, onScreen = Camera:WorldToViewportPoint(root.Position)
+                if onScreen and point.Z > 0 then
+                    shown = true
+                    local targeted = Settings.TargetedESPEnabled and player.UserId == Settings.TargetESPUserId
+                    local color = targeted and Color3.fromRGB(255, 190, 35) or Color3.fromRGB(92, 196, 255)
+                    if Settings.ESPLines then
+                        local to = Vector2.new(point.X, point.Y)
+                        local delta = to - origin
+                        local middle = (origin + to) / 2
+                        entry.Line.Visible = true
+                        entry.Line.BackgroundColor3 = color
+                        entry.Line.Position = UDim2.fromOffset(middle.X, middle.Y)
+                        entry.Line.Size = UDim2.fromOffset(delta.Magnitude, 1.5)
+                        entry.Line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+                    else
+                        entry.Line.Visible = false
+                    end
+                    if Settings.ESPBoxes then
+                        local boundsCFrame, boundsSize = character:GetBoundingBox()
+                        local half = boundsSize / 2
+                        local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+                        for _, corner in ipairs(boxCorners) do
+                            local projected = Camera:WorldToViewportPoint(boundsCFrame:PointToWorldSpace(corner * half))
+                            minX = math.min(minX, projected.X)
+                            minY = math.min(minY, projected.Y)
+                            maxX = math.max(maxX, projected.X)
+                            maxY = math.max(maxY, projected.Y)
+                        end
+                        entry.Box.Visible = true
+                        entry.Stroke.Color = color
+                        entry.Box.Position = UDim2.fromOffset(minX, minY)
+                        entry.Box.Size = UDim2.fromOffset(maxX - minX, maxY - minY)
+                    else
+                        entry.Box.Visible = false
+                    end
+                end
+            end
+            if not shown then
+                entry.Line.Visible = false
+                entry.Box.Visible = false
+            end
+        end
+    end
+    for player, entry in pairs(State.Drawings) do
+        if not player.Parent then
+            destroyDrawing(player, entry)
+        end
+    end
+end
+
+-- Hitbox expander resizes other players' root parts on this client only.
+local function restoreHitboxes()
+    for root, original in pairs(State.HitboxOriginals) do
+        if root.Parent then
+            root.Size = original.Size
+            root.Transparency = original.Transparency
+            root.CanCollide = original.CanCollide
+        end
+    end
+    table.clear(State.HitboxOriginals)
+end
+local function applyHitboxes()
+    if not Settings.HitboxEnabled then
+        return
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        local character = player.Character
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        if player ~= LocalPlayer and root and not sameTeam(player) then
+            if not State.HitboxOriginals[root] then
+                State.HitboxOriginals[root] = {Size = root.Size, Transparency = root.Transparency,
+                    CanCollide = root.CanCollide}
+            end
+            root.Size = Vector3.one * Settings.HitboxSize
+            root.Transparency = 0.6
+            root.CanCollide = false
+        end
+    end
+end
+local function setHitboxes(enabled)
+    Settings.HitboxEnabled = enabled
+    if enabled then
+        applyHitboxes()
+    else
+        restoreHitboxes()
+    end
+end
+
+-- X-ray uses LocalTransparencyModifier, which never replicates and resets cleanly.
+local function setXRay(enabled)
+    Settings.XRayEnabled = enabled
+    for part in pairs(State.XRayParts) do
+        if part.Parent then
+            part.LocalTransparencyModifier = 0
+        end
+    end
+    table.clear(State.XRayParts)
+    if not enabled then
+        return
+    end
+    local characters = {}
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            table.insert(characters, player.Character)
+        end
+    end
+    local count = 0
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if count >= 20000 then
+            log("X-ray stopped at 20000 parts.")
+            break
+        end
+        if part:IsA("BasePart") and not part:IsA("Terrain") and part.Transparency < 0.5 then
+            local inCharacter = false
+            for _, character in ipairs(characters) do
+                if part:IsDescendantOf(character) then
+                    inCharacter = true
+                    break
+                end
+            end
+            if not inCharacter then
+                part.LocalTransparencyModifier = 0.65
+                State.XRayParts[part] = true
+                count += 1
+            end
+        end
+    end
+    log("X-ray applied to " .. count .. " parts.")
+end
 
 -- Shared screen-pixel sizes for every player, with distance scaling.
 -- Name text is smaller than HP; long names truncate instead of shrinking.
@@ -1211,12 +1530,23 @@ local function releaseTriggerTool()
 end
 local function updateTriggerbot()
     if not Settings.TriggerbotEnabled or Settings.FreecamEnabled
-        or UserInputService:GetFocusedTextBox() then releaseTriggerTool(); return end
+        or UserInputService:GetFocusedTextBox() then
+        releaseTriggerTool(); State.TriggerSince = nil; return
+    end
+    if Settings.TriggerKey ~= "Always" and not State.RightMouseDown then
+        releaseTriggerTool(); State.TriggerSince = nil; return
+    end
     local character = getCharacter()
     local humanoid = getHumanoid()
     if not character or not humanoid or humanoid.Health <= 0 then releaseTriggerTool(); return end
     local target = getCrosshairTarget()
-    if not target then releaseTriggerTool(); return end
+    local targetPlayer = target and Players:GetPlayerFromCharacter(target)
+    if not target or (targetPlayer and sameTeam(targetPlayer)) then
+        releaseTriggerTool(); State.TriggerSince = nil; return
+    end
+    -- Reaction delay: the crosshair must rest on a target before the first shot.
+    State.TriggerSince = State.TriggerSince or os.clock()
+    if os.clock() - State.TriggerSince < Settings.TriggerDelay / 1000 then return end
     local tool = character:FindFirstChildOfClass("Tool")
     if not tool or not tool.Enabled or (tool.RequiresHandle and not tool:FindFirstChild("Handle")) then
         releaseTriggerTool()
@@ -1455,6 +1785,63 @@ local function teleportForward()
             .. Settings.TeleportDistance
             .. " studs"
     )
+end
+local function teleportToTarget()
+    local root = getRoot()
+    local player = Settings.TargetESPUserId and Players:GetPlayerByUserId(Settings.TargetESPUserId)
+    local targetRoot = player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root or not targetRoot then
+        log("Select an ESP target on the Visuals tab first.")
+        return
+    end
+    root.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
+    log("Teleported to @" .. player.Name)
+end
+local function clickTeleport()
+    local root = getRoot()
+    Camera = workspace.CurrentCamera
+    if not root or not Camera then
+        return
+    end
+    local mouse = UserInputService:GetMouseLocation()
+    local ray = Camera:ViewportPointToRay(mouse.X, mouse.Y)
+    local parameters = RaycastParams.new()
+    parameters.FilterType = Enum.RaycastFilterType.Exclude
+    parameters.FilterDescendantsInstances = {root.Parent}
+    local result = workspace:Raycast(ray.Origin, ray.Direction * 5000, parameters)
+    if not result then
+        log("Click teleport: nothing under the cursor.")
+        return
+    end
+    root.CFrame = CFrame.new(result.Position + Vector3.new(0, 3.5, 0)) * root.CFrame.Rotation
+    log(string.format("Click teleported %.0f studs", (result.Position - ray.Origin).Magnitude))
+end
+local function dashForward()
+    local root = getRoot()
+    if not root then
+        log("Dash failed")
+        return
+    end
+    local look = Camera and Camera.CFrame.LookVector or root.CFrame.LookVector
+    local flat = Vector3.new(look.X, 0, look.Z)
+    if flat.Magnitude < 0.01 then
+        flat = root.CFrame.LookVector
+    end
+    root.AssemblyLinearVelocity = flat.Unit * Settings.DashSpeed + Vector3.new(0, 20, 0)
+    log("Dash at " .. Settings.DashSpeed .. " studs/sec")
+end
+local function updateCFrameSpeed(dt)
+    if not Settings.CFrameSpeedEnabled or Settings.FlyEnabled or Settings.FreecamEnabled then
+        return
+    end
+    local root, humanoid = getRoot(), getHumanoid()
+    if not root or not humanoid or humanoid.Health <= 0 then
+        return
+    end
+    local direction = humanoid.MoveDirection
+    if direction.Magnitude > 0 then
+        root.CFrame += direction.Unit * Settings.CFrameSpeed * dt
+    end
 end
 
 -- =========================================================
@@ -1766,11 +2153,136 @@ connect(combatBack.MouseButton1Click, function()
 connect(movementBack.MouseButton1Click, function()
         showPage("Menu")
     end)
+connect(visualsMenuButton.MouseButton1Click, function() showPage("Visuals") end)
+connect(visualsBack.MouseButton1Click, function() showPage("Menu") end)
 
 -- =========================================================
 -- COMBAT BUTTONS
 
 -- =========================================================
+local function toggleText(name, enabled)
+    return name .. ": " .. (enabled and "ON" or "OFF")
+end
+connect(stickyButton.MouseButton1Click, function()
+    Settings.StickyAim = not Settings.StickyAim
+    State.StickyTarget = nil
+    stickyButton.Text = toggleText("Sticky Aim", Settings.StickyAim)
+end)
+connect(teamCheckButton.MouseButton1Click, function()
+    Settings.TeamCheck = not Settings.TeamCheck
+    State.StickyTarget = nil
+    teamCheckButton.Text = toggleText("Team Check", Settings.TeamCheck)
+    if Settings.HitboxEnabled then restoreHitboxes(); applyHitboxes() end
+end)
+connect(softMinus.MouseButton1Click, function()
+    Settings.SoftStrength = math.max(5, Settings.SoftStrength - 5)
+    softLabel.Text = "Soft Aim Strength: " .. Settings.SoftStrength .. "%"
+end)
+connect(softPlus.MouseButton1Click, function()
+    Settings.SoftStrength = math.min(100, Settings.SoftStrength + 5)
+    softLabel.Text = "Soft Aim Strength: " .. Settings.SoftStrength .. "%"
+end)
+connect(predictionMinus.MouseButton1Click, function()
+    Settings.Prediction = math.max(0, math.floor((Settings.Prediction - 0.05) * 100 + 0.5) / 100)
+    predictionLabel.Text = "Prediction: " .. Settings.Prediction .. "s"
+end)
+connect(predictionPlus.MouseButton1Click, function()
+    Settings.Prediction = math.min(0.5, math.floor((Settings.Prediction + 0.05) * 100 + 0.5) / 100)
+    predictionLabel.Text = "Prediction: " .. Settings.Prediction .. "s"
+end)
+connect(triggerDelayMinus.MouseButton1Click, function()
+    Settings.TriggerDelay = math.max(0, Settings.TriggerDelay - 25)
+    triggerDelayLabel.Text = "Reaction Delay: " .. Settings.TriggerDelay .. " ms"
+end)
+connect(triggerDelayPlus.MouseButton1Click, function()
+    Settings.TriggerDelay = math.min(1000, Settings.TriggerDelay + 25)
+    triggerDelayLabel.Text = "Reaction Delay: " .. Settings.TriggerDelay .. " ms"
+end)
+connect(triggerRateMinus.MouseButton1Click, function()
+    Settings.TriggerCooldown = math.max(0.01, Settings.TriggerCooldown - 0.02)
+    triggerRateLabel.Text = "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000 + 0.5) .. " ms"
+end)
+connect(triggerRatePlus.MouseButton1Click, function()
+    Settings.TriggerCooldown = math.min(2, Settings.TriggerCooldown + 0.02)
+    triggerRateLabel.Text = "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000 + 0.5) .. " ms"
+end)
+
+-- =========================================================
+-- VISUAL BUTTONS
+
+-- =========================================================
+connect(espLinesButton.MouseButton1Click, function()
+    Settings.ESPLines = not Settings.ESPLines
+    espLinesButton.Text = toggleText("Tracer Lines", Settings.ESPLines)
+end)
+connect(espBoxesButton.MouseButton1Click, function()
+    Settings.ESPBoxes = not Settings.ESPBoxes
+    espBoxesButton.Text = toggleText("2D Boxes", Settings.ESPBoxes)
+end)
+connect(xrayButton.MouseButton1Click, function()
+    setXRay(not Settings.XRayEnabled)
+    xrayButton.Text = toggleText("X-Ray Walls", Settings.XRayEnabled)
+end)
+connect(hitboxButton.MouseButton1Click, function()
+    setHitboxes(not Settings.HitboxEnabled)
+    hitboxButton.Text = toggleText("Hitbox Expander", Settings.HitboxEnabled)
+end)
+connect(hitboxMinus.MouseButton1Click, function()
+    Settings.HitboxSize = math.max(2, Settings.HitboxSize - 2)
+    hitboxLabel.Text = "Hitbox Size: " .. Settings.HitboxSize
+    applyHitboxes()
+end)
+connect(hitboxPlus.MouseButton1Click, function()
+    Settings.HitboxSize = math.min(60, Settings.HitboxSize + 2)
+    hitboxLabel.Text = "Hitbox Size: " .. Settings.HitboxSize
+    applyHitboxes()
+end)
+
+-- =========================================================
+-- TELEPORT / CFRAME BUTTONS
+
+-- =========================================================
+connect(teleportTargetButton.MouseButton1Click, teleportToTarget)
+connect(clickTeleportButton.MouseButton1Click, function()
+    Settings.ClickTeleport = not Settings.ClickTeleport
+    clickTeleportButton.Text = toggleText("Ctrl+Click Teleport", Settings.ClickTeleport)
+end)
+connect(cframeSpeedButton.MouseButton1Click, function()
+    Settings.CFrameSpeedEnabled = not Settings.CFrameSpeedEnabled
+    cframeSpeedButton.Text = toggleText("CFrame Speed", Settings.CFrameSpeedEnabled)
+end)
+connect(cframeSpeedMinus.MouseButton1Click, function()
+    Settings.CFrameSpeed = math.max(10, Settings.CFrameSpeed - 10)
+    cframeSpeedLabel.Text = "CFrame Speed: " .. Settings.CFrameSpeed
+end)
+connect(cframeSpeedPlus.MouseButton1Click, function()
+    Settings.CFrameSpeed = math.min(1000, Settings.CFrameSpeed + 10)
+    cframeSpeedLabel.Text = "CFrame Speed: " .. Settings.CFrameSpeed
+end)
+connect(dashMinus.MouseButton1Click, function()
+    Settings.DashSpeed = math.max(50, Settings.DashSpeed - 50)
+    dashLabel.Text = "Dash Velocity: " .. Settings.DashSpeed
+end)
+connect(dashPlus.MouseButton1Click, function()
+    Settings.DashSpeed = math.min(2000, Settings.DashSpeed + 50)
+    dashLabel.Text = "Dash Velocity: " .. Settings.DashSpeed
+end)
+connect(dashButton.MouseButton1Click, dashForward)
+connect(UserInputService.InputBegan, function(input, processed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        State.RightMouseDown = true
+    elseif input.UserInputType == Enum.UserInputType.MouseButton1 and Settings.ClickTeleport
+        and not processed and not Settings.FreecamEnabled
+        and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+            or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) then
+        clickTeleport()
+    end
+end)
+connect(UserInputService.InputEnded, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        State.RightMouseDown = false
+    end
+end)
 connect(aimButton.MouseButton1Click, function()
         if Settings.FreecamEnabled then log("Exit Freecam before enabling Auto Aim."); return end
         Settings.AimEnabled =
@@ -1807,7 +2319,7 @@ connect(espButton.MouseButton1Click, function()
         Settings.ESPEnabled =
             not Settings.ESPEnabled
         espButton.Text =
-            "Walls / ESP: "
+            "Player Highlights: "
             .. (
                 Settings.ESPEnabled
                     and "ON"
@@ -2220,16 +2732,18 @@ connect(RunService.RenderStepped, function(dt)
             Settings.AimEnabled
         updateAim(dt)
         updateTriggerbot()
+        updateDrawings()
         applyWalkSpeed()
         updateFly(dt)
+        updateCFrameSpeed(dt)
         applyJumpPower()
         espTimer += dt
-        if
-            (Settings.ESPEnabled or Settings.TargetedESPEnabled)
-            and espTimer >= 1
-        then
+        if espTimer >= 1 then
             espTimer = 0
-            refreshESP()
+            if Settings.ESPEnabled or Settings.TargetedESPEnabled then
+                refreshESP()
+            end
+            applyHitboxes()
         end
     end)
 
@@ -2290,6 +2804,59 @@ connect(UserInputService.TextBoxFocused, function()
     table.clear(State.FlyKeys)
 end)
 connect(RunService.Stepped, updateNoclip)
+local function restoreHumanoids()
+    for humanoid, original in pairs(State.HumanoidDefaults) do
+        if humanoid.Parent then
+            humanoid.WalkSpeed = original.WalkSpeed
+            humanoid.JumpPower = original.JumpPower
+            humanoid.UseJumpPower = original.UseJumpPower
+        end
+    end
+end
+local function disableAll()
+    Settings.AimEnabled = false
+    Settings.TriggerbotEnabled = false
+    Settings.ESPEnabled = false
+    Settings.TargetedESPEnabled = false
+    Settings.ESPLines = false
+    Settings.ESPBoxes = false
+    Settings.InventoryInspectEnabled = false
+    Settings.SpeedEnabled = false
+    Settings.FlyEnabled = false
+    Settings.JumpEnabled = false
+    Settings.InfiniteJump = false
+    Settings.ClickTeleport = false
+    Settings.CFrameSpeedEnabled = false
+    State.StickyTarget = nil
+    stopSpin()
+    releaseTriggerTool()
+    disableFreecam()
+    setNoclip(false)
+    setXRay(false)
+    setHitboxes(false)
+    clearESP()
+    clearDrawings()
+    restoreHumanoids()
+    updateInventoryInspection()
+    aimButton.Text = "Auto Aim: OFF"
+    triggerButton.Text = "Triggerbot (Equipped Tool): OFF"
+    espButton.Text = "Player Highlights: OFF"
+    targetedESPButton.Text = "Targeted ESP: OFF"
+    espLinesButton.Text = "Tracer Lines: OFF"
+    espBoxesButton.Text = "2D Boxes: OFF"
+    xrayButton.Text = "X-Ray Walls: OFF"
+    hitboxButton.Text = "Hitbox Expander: OFF"
+    inventoryButton.Text = "Look-at Inventory: OFF"
+    speedButton.Text = "Speed Alterer: OFF"
+    flyButton.Text = "Fly: OFF"
+    noclipButton.Text = "Noclip: OFF"
+    highJumpButton.Text = "High Jump: OFF"
+    infiniteJumpButton.Text = "Infinite Jump: OFF"
+    clickTeleportButton.Text = "Ctrl+Click Teleport: OFF"
+    cframeSpeedButton.Text = "CFrame Speed: OFF"
+    log("All tests disabled.")
+end
+connect(disableAllButton.MouseButton1Click, disableAll)
 -- Destroying/replacing the GUI also stops the old loops and restores state.
 local function cleanup()
     if not running then return end
@@ -2298,15 +2865,12 @@ local function cleanup()
     releaseTriggerTool()
     disableFreecam()
     setNoclip(false)
+    setXRay(false)
+    restoreHitboxes()
     clearESP()
+    clearDrawings()
     restoreStatEdits()
-    for humanoid, original in pairs(State.HumanoidDefaults) do
-        if humanoid.Parent then
-            humanoid.WalkSpeed = original.WalkSpeed
-            humanoid.JumpPower = original.JumpPower
-            humanoid.UseJumpPower = original.UseJumpPower
-        end
-    end
+    restoreHumanoids()
     for _, connection in ipairs(connections) do connection:Disconnect() end
 end
 connect(gui.Destroying, cleanup)
