@@ -178,41 +178,12 @@ main.BorderSizePixel = 0
 main.ClipsDescendants = true
 main.Parent = gui
 addCorner(main, 14)
-local mainStroke = Instance.new("UIStroke")
-mainStroke.Color = Theme.Line
-mainStroke.Thickness = 1
-mainStroke.Parent = main
-local accentBar = Instance.new("Frame")
-accentBar.Size = UDim2.new(1, 0, 0, 3)
-accentBar.BackgroundColor3 = Theme.Accent
-accentBar.BorderSizePixel = 0
-accentBar.Parent = main
 local title = Instance.new("Frame")
 title.Name = "Header"
 title.Size = UDim2.new(1, 0, 0, 56)
 title.BackgroundTransparency = 1
 title.Active = true
 title.Parent = main
-local titleText = Instance.new("TextLabel")
-titleText.BackgroundTransparency = 1
-titleText.Position = UDim2.fromOffset(16, 10)
-titleText.Size = UDim2.new(1, -32, 0, 22)
-titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 16
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.TextColor3 = Theme.Text
-titleText.Text = "Anti-Cheat Tester"
-titleText.Parent = title
-local subtitle = Instance.new("TextLabel")
-subtitle.BackgroundTransparency = 1
-subtitle.Position = UDim2.fromOffset(16, 32)
-subtitle.Size = UDim2.new(1, -32, 0, 16)
-subtitle.Font = Enum.Font.Gotham
-subtitle.TextSize = 12
-subtitle.TextXAlignment = Enum.TextXAlignment.Left
-subtitle.TextColor3 = Theme.Muted
-subtitle.Text = "Right Shift hides this panel"
-subtitle.Parent = title
 local tabBar = Instance.new("Frame")
 tabBar.Name = "Tabs"
 tabBar.Position = UDim2.fromOffset(12, 60)
@@ -221,32 +192,53 @@ tabBar.BackgroundColor3 = Color3.fromRGB(16, 20, 26)
 tabBar.BorderSizePixel = 0
 tabBar.Parent = main
 addCorner(tabBar, 8)
-local tabLayout = Instance.new("UIListLayout")
-tabLayout.FillDirection = Enum.FillDirection.Horizontal
-tabLayout.Padding = UDim.new(0, 4)
-tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-tabLayout.Parent = tabBar
-local tabPad = Instance.new("UIPadding")
-tabPad.PaddingLeft = UDim.new(0, 4)
-tabPad.PaddingRight = UDim.new(0, 4)
-tabPad.Parent = tabBar
+do
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Theme.Line
+    mainStroke.Thickness = 1
+    mainStroke.Parent = main
+    local accentBar = Instance.new("Frame")
+    accentBar.Size = UDim2.new(1, 0, 0, 3)
+    accentBar.BackgroundColor3 = Theme.Accent
+    accentBar.BorderSizePixel = 0
+    accentBar.Parent = main
+    local titleText = Instance.new("TextLabel")
+    titleText.BackgroundTransparency = 1
+    titleText.Position = UDim2.fromOffset(16, 10)
+    titleText.Size = UDim2.new(1, -32, 0, 22)
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextSize = 16
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.TextColor3 = Theme.Text
+    titleText.Text = "Anti-Cheat Tester"
+    titleText.Parent = title
+    local subtitle = Instance.new("TextLabel")
+    subtitle.BackgroundTransparency = 1
+    subtitle.Position = UDim2.fromOffset(16, 32)
+    subtitle.Size = UDim2.new(1, -32, 0, 16)
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 12
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.TextColor3 = Theme.Muted
+    subtitle.Text = "Right Shift hides this panel"
+    subtitle.Parent = title
+    local tabLayout = Instance.new("UIListLayout")
+    tabLayout.FillDirection = Enum.FillDirection.Horizontal
+    tabLayout.Padding = UDim.new(0, 4)
+    tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Parent = tabBar
+    local tabPad = Instance.new("UIPadding")
+    tabPad.PaddingLeft = UDim.new(0, 4)
+    tabPad.PaddingRight = UDim.new(0, 4)
+    tabPad.Parent = tabBar
+end
 local tabButtons = {}
 
 -- =========================================================
 -- LOG
 
 -- =========================================================
-local logCaption = Instance.new("TextLabel")
-logCaption.BackgroundTransparency = 1
-logCaption.Position = UDim2.new(0, 16, 1, -118)
-logCaption.Size = UDim2.new(1, -32, 0, 16)
-logCaption.Font = Enum.Font.GothamBold
-logCaption.TextSize = 11
-logCaption.TextXAlignment = Enum.TextXAlignment.Left
-logCaption.TextColor3 = Theme.Muted
-logCaption.Text = "ACTIVITY"
-logCaption.Parent = main
 local logBox = Instance.new("TextLabel")
 logBox.Size = UDim2.new(1, -24, 0, 86)
 logBox.Position = UDim2.new(0, 12, 1, -98)
@@ -261,11 +253,23 @@ logBox.TextXAlignment = Enum.TextXAlignment.Left
 logBox.TextYAlignment = Enum.TextYAlignment.Top
 logBox.Parent = main
 addCorner(logBox, 8)
-local logPad = Instance.new("UIPadding")
-logPad.PaddingTop = UDim.new(0, 8)
-logPad.PaddingLeft = UDim.new(0, 10)
-logPad.PaddingRight = UDim.new(0, 10)
-logPad.Parent = logBox
+do
+    local logCaption = Instance.new("TextLabel")
+    logCaption.BackgroundTransparency = 1
+    logCaption.Position = UDim2.new(0, 16, 1, -118)
+    logCaption.Size = UDim2.new(1, -32, 0, 16)
+    logCaption.Font = Enum.Font.GothamBold
+    logCaption.TextSize = 11
+    logCaption.TextXAlignment = Enum.TextXAlignment.Left
+    logCaption.TextColor3 = Theme.Muted
+    logCaption.Text = "ACTIVITY"
+    logCaption.Parent = main
+    local logPad = Instance.new("UIPadding")
+    logPad.PaddingTop = UDim.new(0, 8)
+    logPad.PaddingLeft = UDim.new(0, 10)
+    logPad.PaddingRight = UDim.new(0, 10)
+    logPad.Parent = logBox
+end
 local logLines = {}
 local function log(message)
     table.insert(logLines, string.format("%6.1f   %s", os.clock(), tostring(message)))
@@ -341,10 +345,7 @@ local function makeButton(parent, text)
     button.TextColor3 = Theme.Text
     button.LayoutOrder = #parent:GetChildren()
     button.Parent = parent
-    local toggleName, toggleState = string.match(text, "^(.*): (ON)$")
-    if not toggleName then
-        toggleName, toggleState = string.match(text, "^(.*): (OFF)$")
-    end
+    local toggleName = string.match(text, "^(.*): ON$") or string.match(text, "^(.*): OFF$")
     local navDetail = navInfo[text]
     if toggleName then
         button.Size = UDim2.new(1, -4, 0, 40)
@@ -546,7 +547,20 @@ local function makeTextBox(parent, text)
     styleField(box)
     return box
 end
-local function makeStepper(parent, labelText)
+-- Luau allows 200 locals per function, and this whole script is one chunk.
+-- Steppers wire their own buttons so each one costs no top-level locals.
+local function stepSetting(key, amount, minimum, maximum)
+    return function(direction)
+        local value = math.clamp(Settings[key] + direction * amount, minimum, maximum)
+        Settings[key] = math.floor(value * 1000 + 0.5) / 1000
+    end
+end
+local function showSetting(prefix, key, suffix)
+    return function()
+        return prefix .. Settings[key] .. (suffix or "")
+    end
+end
+local function makeStepper(parent, format, step)
     local row = Instance.new("Frame")
     row.BackgroundTransparency = 1
     row.Size = UDim2.new(1, -4, 0, 36)
@@ -559,9 +573,9 @@ local function makeStepper(parent, labelText)
     label.TextSize = 13
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextColor3 = Theme.Text
-    label.Text = labelText
+    label.Text = format()
     label.Parent = row
-    local function stepButton(symbol, offset)
+    local function stepButton(symbol, offset, direction)
         local button = Instance.new("TextButton")
         button.AutoButtonColor = false
         button.Size = UDim2.fromOffset(36, 32)
@@ -581,9 +595,14 @@ local function makeStepper(parent, labelText)
         button.MouseLeave:Connect(function()
             button.BackgroundColor3 = Theme.Raised
         end)
-        return button
+        connect(button.MouseButton1Click, function()
+            step(direction)
+            label.Text = format()
+        end)
     end
-    return label, stepButton("-", -40), stepButton("+", 0)
+    stepButton("-", -40, -1)
+    stepButton("+", 0, 1)
+    return label
 end
 local function makeInlineField(parent, boxText, buttonText)
     local row = Instance.new("Frame")
@@ -736,11 +755,10 @@ end)
 local stickyButton = makeButton(combatPage, "Sticky Aim: OFF")
 local teamCheckButton = makeButton(combatPage, "Team Check: OFF")
 local wallCheckButton = makeButton(combatPage, "Aim Wall Check: ON")
-local fovLabel, fovMinus, fovPlus = makeStepper(combatPage, "FOV: " .. Settings.FOV)
-local smoothLabel, smoothMinus, smoothPlus = makeStepper(combatPage, "Smoothness: " .. Settings.Smoothness)
-local softLabel, softMinus, softPlus = makeStepper(combatPage, "Soft Aim Strength: " .. Settings.SoftStrength .. "%")
-local predictionLabel, predictionMinus, predictionPlus =
-    makeStepper(combatPage, "Prediction: " .. Settings.Prediction .. "s")
+makeStepper(combatPage, showSetting("FOV: ", "FOV"), stepSetting("FOV", 20, 20, 500))
+makeStepper(combatPage, showSetting("Smoothness: ", "Smoothness"), stepSetting("Smoothness", 1, 1, 30))
+makeStepper(combatPage, showSetting("Soft Aim Strength: ", "SoftStrength", "%"), stepSetting("SoftStrength", 5, 5, 100))
+makeStepper(combatPage, showSetting("Prediction: ", "Prediction", "s"), stepSetting("Prediction", 0.05, 0, 0.5))
 makeLabel(combatPage, "Soft mode pulls gently toward the target; Snap locks instantly.")
 makeLabel(combatPage, "TRIGGERBOT")
 local triggerButton = makeButton(combatPage, "Triggerbot (Equipped Tool): OFF")
@@ -748,10 +766,10 @@ makeCycle(combatPage, "Activation", {"Always", "Hold RMB"}, Settings.TriggerKey,
     Settings.TriggerKey = value
     State.TriggerSince = nil
 end)
-local triggerDelayLabel, triggerDelayMinus, triggerDelayPlus =
-    makeStepper(combatPage, "Reaction Delay: " .. Settings.TriggerDelay .. " ms")
-local triggerRateLabel, triggerRateMinus, triggerRatePlus =
-    makeStepper(combatPage, "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000) .. " ms")
+makeStepper(combatPage, showSetting("Reaction Delay: ", "TriggerDelay", " ms"), stepSetting("TriggerDelay", 25, 0, 1000))
+makeStepper(combatPage, function()
+    return "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000 + 0.5) .. " ms"
+end, stepSetting("TriggerCooldown", 0.02, 0.01, 2))
 makeLabel(combatPage, "Fires the equipped Tool while the crosshair is on a player.")
 
 -- =========================================================
@@ -768,7 +786,7 @@ local espLabelsButton = makeButton(visualsPage, "Username / HP Labels: ON")
 local xrayButton = makeButton(visualsPage, "X-Ray Walls: OFF")
 makeLabel(visualsPage, "HITBOX EXPANDER")
 local hitboxButton = makeButton(visualsPage, "Hitbox Expander: OFF")
-local hitboxLabel, hitboxMinus, hitboxPlus = makeStepper(visualsPage, "Hitbox Size: " .. Settings.HitboxSize)
+makeStepper(visualsPage, showSetting("Hitbox Size: ", "HitboxSize"), stepSetting("HitboxSize", 2, 2, 60))
 makeLabel(visualsPage, "Enlarges other players' root parts on this client only.")
 
 -- =========================================================
@@ -787,8 +805,7 @@ local freecamButton =
         movementPage,
         "Freecam: OFF"
     )
-local freecamSpeedLabel, freecamSpeedMinus, freecamSpeedPlus =
-    makeStepper(movementPage, "Freecam Speed: " .. Settings.FreecamSpeed)
+makeStepper(movementPage, showSetting("Freecam Speed: ", "FreecamSpeed"), stepSetting("FreecamSpeed", 10, 5, 1000))
 makeLabel(
     movementPage,
     "MOVEMENT TESTS"
@@ -798,17 +815,18 @@ local speedButton =
         movementPage,
         "Speed Alterer: OFF"
     )
-local speedLabel, speedMinus, speedPlus =
-    makeStepper(movementPage, "WalkSpeed: " .. Settings.WalkSpeed)
 local speedBox, applySpeed =
     makeInlineField(movementPage, tostring(Settings.WalkSpeed), "Apply")
+local speedLabel = makeStepper(movementPage, showSetting("WalkSpeed: ", "WalkSpeed"), function(direction)
+    stepSetting("WalkSpeed", 10, 0, 1000)(direction)
+    speedBox.Text = tostring(Settings.WalkSpeed)
+end)
 local flyButton =
     makeButton(
         movementPage,
         "Fly: OFF"
     )
-local flySpeedLabel, flyMinus, flyPlus =
-    makeStepper(movementPage, "Fly Speed: " .. Settings.FlySpeed)
+makeStepper(movementPage, showSetting("Fly Speed: ", "FlySpeed"), stepSetting("FlySpeed", 10, 10, 500))
 local noclipButton =
     makeButton(
         movementPage,
@@ -819,15 +837,14 @@ local highJumpButton =
         movementPage,
         "High Jump: OFF"
     )
-local jumpLabel, jumpMinus, jumpPlus =
-    makeStepper(movementPage, "Jump Power: " .. Settings.JumpPower)
+makeStepper(movementPage, showSetting("Jump Power: ", "JumpPower"), stepSetting("JumpPower", 10, 0, 500))
 local infiniteJumpButton =
     makeButton(
         movementPage,
         "Infinite Jump: OFF"
     )
-local teleportLabel, teleportMinus, teleportPlus =
-    makeStepper(movementPage, "Teleport Distance: " .. Settings.TeleportDistance)
+makeStepper(movementPage, showSetting("Teleport Distance: ", "TeleportDistance"),
+    stepSetting("TeleportDistance", 50, 10, 10000))
 local teleportButton =
     makeButton(
         movementPage,
@@ -837,10 +854,9 @@ local teleportTargetButton = makeButton(movementPage, "Teleport to ESP Target")
 local clickTeleportButton = makeButton(movementPage, "Ctrl+Click Teleport: OFF")
 makeLabel(movementPage, "CFRAME MOVEMENT")
 local cframeSpeedButton = makeButton(movementPage, "CFrame Speed: OFF")
-local cframeSpeedLabel, cframeSpeedMinus, cframeSpeedPlus =
-    makeStepper(movementPage, "CFrame Speed: " .. Settings.CFrameSpeed)
+makeStepper(movementPage, showSetting("CFrame Speed: ", "CFrameSpeed"), stepSetting("CFrameSpeed", 10, 10, 1000))
 makeLabel(movementPage, "Moves the root by CFrame each frame instead of WalkSpeed.")
-local dashLabel, dashMinus, dashPlus = makeStepper(movementPage, "Dash Velocity: " .. Settings.DashSpeed)
+makeStepper(movementPage, showSetting("Dash Velocity: ", "DashSpeed"), stepSetting("DashSpeed", 50, 50, 2000))
 local dashButton = makeButton(movementPage, "Dash Forward")
 
 -- =========================================================
@@ -1957,15 +1973,6 @@ end
 connect(freecamButton.MouseButton1Click, function()
     if Settings.FreecamEnabled then disableFreecam() else enableFreecam() end
 end)
-connect(freecamSpeedMinus.MouseButton1Click, function()
-    Settings.FreecamSpeed = math.max(5, Settings.FreecamSpeed - 10)
-    freecamSpeedLabel.Text = "Freecam Speed: " .. Settings.FreecamSpeed
-end)
-connect(freecamSpeedPlus.MouseButton1Click, function()
-    Settings.FreecamSpeed = math.min(1000, Settings.FreecamSpeed + 10)
-    freecamSpeedLabel.Text = "Freecam Speed: " .. Settings.FreecamSpeed
-end)
-
 
 -- =========================================================
 -- =========================================================
@@ -2174,39 +2181,6 @@ connect(teamCheckButton.MouseButton1Click, function()
     teamCheckButton.Text = toggleText("Team Check", Settings.TeamCheck)
     if Settings.HitboxEnabled then restoreHitboxes(); applyHitboxes() end
 end)
-connect(softMinus.MouseButton1Click, function()
-    Settings.SoftStrength = math.max(5, Settings.SoftStrength - 5)
-    softLabel.Text = "Soft Aim Strength: " .. Settings.SoftStrength .. "%"
-end)
-connect(softPlus.MouseButton1Click, function()
-    Settings.SoftStrength = math.min(100, Settings.SoftStrength + 5)
-    softLabel.Text = "Soft Aim Strength: " .. Settings.SoftStrength .. "%"
-end)
-connect(predictionMinus.MouseButton1Click, function()
-    Settings.Prediction = math.max(0, math.floor((Settings.Prediction - 0.05) * 100 + 0.5) / 100)
-    predictionLabel.Text = "Prediction: " .. Settings.Prediction .. "s"
-end)
-connect(predictionPlus.MouseButton1Click, function()
-    Settings.Prediction = math.min(0.5, math.floor((Settings.Prediction + 0.05) * 100 + 0.5) / 100)
-    predictionLabel.Text = "Prediction: " .. Settings.Prediction .. "s"
-end)
-connect(triggerDelayMinus.MouseButton1Click, function()
-    Settings.TriggerDelay = math.max(0, Settings.TriggerDelay - 25)
-    triggerDelayLabel.Text = "Reaction Delay: " .. Settings.TriggerDelay .. " ms"
-end)
-connect(triggerDelayPlus.MouseButton1Click, function()
-    Settings.TriggerDelay = math.min(1000, Settings.TriggerDelay + 25)
-    triggerDelayLabel.Text = "Reaction Delay: " .. Settings.TriggerDelay .. " ms"
-end)
-connect(triggerRateMinus.MouseButton1Click, function()
-    Settings.TriggerCooldown = math.max(0.01, Settings.TriggerCooldown - 0.02)
-    triggerRateLabel.Text = "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000 + 0.5) .. " ms"
-end)
-connect(triggerRatePlus.MouseButton1Click, function()
-    Settings.TriggerCooldown = math.min(2, Settings.TriggerCooldown + 0.02)
-    triggerRateLabel.Text = "Fire Interval: " .. math.floor(Settings.TriggerCooldown * 1000 + 0.5) .. " ms"
-end)
-
 -- =========================================================
 -- VISUAL BUTTONS
 
@@ -2227,17 +2201,6 @@ connect(hitboxButton.MouseButton1Click, function()
     setHitboxes(not Settings.HitboxEnabled)
     hitboxButton.Text = toggleText("Hitbox Expander", Settings.HitboxEnabled)
 end)
-connect(hitboxMinus.MouseButton1Click, function()
-    Settings.HitboxSize = math.max(2, Settings.HitboxSize - 2)
-    hitboxLabel.Text = "Hitbox Size: " .. Settings.HitboxSize
-    applyHitboxes()
-end)
-connect(hitboxPlus.MouseButton1Click, function()
-    Settings.HitboxSize = math.min(60, Settings.HitboxSize + 2)
-    hitboxLabel.Text = "Hitbox Size: " .. Settings.HitboxSize
-    applyHitboxes()
-end)
-
 -- =========================================================
 -- TELEPORT / CFRAME BUTTONS
 
@@ -2250,22 +2213,6 @@ end)
 connect(cframeSpeedButton.MouseButton1Click, function()
     Settings.CFrameSpeedEnabled = not Settings.CFrameSpeedEnabled
     cframeSpeedButton.Text = toggleText("CFrame Speed", Settings.CFrameSpeedEnabled)
-end)
-connect(cframeSpeedMinus.MouseButton1Click, function()
-    Settings.CFrameSpeed = math.max(10, Settings.CFrameSpeed - 10)
-    cframeSpeedLabel.Text = "CFrame Speed: " .. Settings.CFrameSpeed
-end)
-connect(cframeSpeedPlus.MouseButton1Click, function()
-    Settings.CFrameSpeed = math.min(1000, Settings.CFrameSpeed + 10)
-    cframeSpeedLabel.Text = "CFrame Speed: " .. Settings.CFrameSpeed
-end)
-connect(dashMinus.MouseButton1Click, function()
-    Settings.DashSpeed = math.max(50, Settings.DashSpeed - 50)
-    dashLabel.Text = "Dash Velocity: " .. Settings.DashSpeed
-end)
-connect(dashPlus.MouseButton1Click, function()
-    Settings.DashSpeed = math.min(2000, Settings.DashSpeed + 50)
-    dashLabel.Text = "Dash Velocity: " .. Settings.DashSpeed
 end)
 connect(dashButton.MouseButton1Click, dashForward)
 connect(UserInputService.InputBegan, function(input, processed)
@@ -2338,47 +2285,6 @@ connect(wallCheckButton.MouseButton1Click, function()
                     or "OFF"
             )
     end)
-connect(fovMinus.MouseButton1Click, function()
-        Settings.FOV =
-            math.max(
-                20,
-                Settings.FOV - 20
-            )
-        fovLabel.Text =
-            "FOV: "
-            .. Settings.FOV
-    end)
-connect(fovPlus.MouseButton1Click, function()
-        Settings.FOV =
-            math.min(
-                500,
-                Settings.FOV + 20
-            )
-        fovLabel.Text =
-            "FOV: "
-            .. Settings.FOV
-    end)
-connect(smoothMinus.MouseButton1Click, function()
-        Settings.Smoothness =
-            math.max(
-                1,
-                Settings.Smoothness - 1
-            )
-        smoothLabel.Text =
-            "Smoothness: "
-            .. Settings.Smoothness
-    end)
-connect(smoothPlus.MouseButton1Click, function()
-        Settings.Smoothness =
-            math.min(
-                30,
-                Settings.Smoothness + 1
-            )
-        smoothLabel.Text =
-            "Smoothness: "
-            .. Settings.Smoothness
-    end)
-
 -- =========================================================
 -- SPEED ALTERER
 
@@ -2444,37 +2350,6 @@ connect(applySpeed.MouseButton1Click, function()
                 .. requested
         )
     end)
-connect(speedMinus.MouseButton1Click, function()
-        Settings.WalkSpeed =
-            math.max(
-                0,
-                Settings.WalkSpeed - 10
-            )
-        speedBox.Text =
-            tostring(
-                Settings.WalkSpeed
-            )
-        speedLabel.Text =
-            "WalkSpeed: "
-            .. Settings.WalkSpeed
-        applyWalkSpeed()
-    end)
-connect(speedPlus.MouseButton1Click, function()
-        Settings.WalkSpeed =
-            math.min(
-                1000,
-                Settings.WalkSpeed + 10
-            )
-        speedBox.Text =
-            tostring(
-                Settings.WalkSpeed
-            )
-        speedLabel.Text =
-            "WalkSpeed: "
-            .. Settings.WalkSpeed
-        applyWalkSpeed()
-    end)
-
 -- =========================================================
 -- OTHER MOVEMENT BUTTONS
 
@@ -2489,26 +2364,6 @@ connect(flyButton.MouseButton1Click, function()
                     and "ON"
                     or "OFF"
             )
-    end)
-connect(flyMinus.MouseButton1Click, function()
-        Settings.FlySpeed =
-            math.max(
-                10,
-                Settings.FlySpeed - 10
-            )
-        flySpeedLabel.Text =
-            "Fly Speed: "
-            .. Settings.FlySpeed
-    end)
-connect(flyPlus.MouseButton1Click, function()
-        Settings.FlySpeed =
-            math.min(
-                500,
-                Settings.FlySpeed + 10
-            )
-        flySpeedLabel.Text =
-            "Fly Speed: "
-            .. Settings.FlySpeed
     end)
 connect(noclipButton.MouseButton1Click, function()
         setNoclip(
@@ -2534,28 +2389,6 @@ connect(highJumpButton.MouseButton1Click, function()
             )
         applyJumpPower()
     end)
-connect(jumpMinus.MouseButton1Click, function()
-        Settings.JumpPower =
-            math.max(
-                0,
-                Settings.JumpPower - 10
-            )
-        jumpLabel.Text =
-            "Jump Power: "
-            .. Settings.JumpPower
-        applyJumpPower()
-    end)
-connect(jumpPlus.MouseButton1Click, function()
-        Settings.JumpPower =
-            math.min(
-                500,
-                Settings.JumpPower + 10
-            )
-        jumpLabel.Text =
-            "Jump Power: "
-            .. Settings.JumpPower
-        applyJumpPower()
-    end)
 connect(infiniteJumpButton.MouseButton1Click, function()
         Settings.InfiniteJump =
             not Settings.InfiniteJump
@@ -2566,28 +2399,6 @@ connect(infiniteJumpButton.MouseButton1Click, function()
                     and "ON"
                     or "OFF"
             )
-    end)
-connect(teleportMinus.MouseButton1Click, function()
-        Settings.TeleportDistance =
-            math.max(
-                10,
-                Settings.TeleportDistance
-                    - 50
-            )
-        teleportLabel.Text =
-            "Teleport Distance: "
-            .. Settings.TeleportDistance
-    end)
-connect(teleportPlus.MouseButton1Click, function()
-        Settings.TeleportDistance =
-            math.min(
-                10000,
-                Settings.TeleportDistance
-                    + 50
-            )
-        teleportLabel.Text =
-            "Teleport Distance: "
-            .. Settings.TeleportDistance
     end)
 connect(teleportButton.MouseButton1Click, teleportForward)
 
