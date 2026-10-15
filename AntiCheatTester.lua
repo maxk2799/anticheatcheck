@@ -58,6 +58,7 @@ local Settings = {
     PeekPrefire = false,
     PeekLead = 8, -- studs ahead of a hidden player's movement
     PeekCover = 14, -- max studs of cover between the player and the wall face
+    Optimized = false,
     -- Visuals
     ESPLines = false,
     ESPBoxes = false,
@@ -92,6 +93,7 @@ local State = {
     OriginalCollisions = {},
     LastTrigger = 0,
     TriggerSince = nil,
+    VisualClock = 0,
     PeekHidden = {},
     StickyTarget = nil,
     RightMouseDown = false,
@@ -768,6 +770,11 @@ local firePresetButton = makeButton(menuPage, "Trigger and Prefire: OFF")
 makeLabel(
     menuPage,
     "Triggerbot and peek prefire. Separate from the combat preset."
+)
+local optimizeButton = makeButton(menuPage, "Optimize: OFF")
+makeLabel(
+    menuPage,
+    "Slows tracers, boxes, and peek checks. Turn off for a full test."
 )
 makeLabel(
     menuPage,
@@ -1589,7 +1596,7 @@ end)
 local playerInfoTimer = 0
 connect(RunService.Heartbeat, function(dt)
     playerInfoTimer += dt
-    if playerInfoTimer < 0.1 then return end
+    if playerInfoTimer < (Settings.Optimized and 0.4 or 0.1) then return end
     playerInfoTimer = 0
     for player, entry in pairs(State.PlayerLabels) do
         if entry.Humanoid.Parent and entry.Head.Parent and player.Parent then
@@ -1706,11 +1713,13 @@ local function findPeekPoint()
                 if not hidden and wasHidden then
                     aimAt = part.Position
                 elseif hidden then
-                    for _, limbName in ipairs({"Head", "UpperTorso", "Torso", "RightUpperArm", "LeftUpperArm", "Right Arm", "Left Arm"}) do
-                        local limb = character:FindFirstChild(limbName)
-                        if limb and limb:IsA("BasePart") and cameraSees(limb.Position, character) then
-                            aimAt = limb.Position
-                            break
+                    if not Settings.Optimized then
+                        for _, limbName in ipairs({"Head", "UpperTorso", "Torso", "RightUpperArm", "LeftUpperArm", "Right Arm", "Left Arm"}) do
+                            local limb = character:FindFirstChild(limbName)
+                            if limb and limb:IsA("BasePart") and cameraSees(limb.Position, character) then
+                                aimAt = limb.Position
+                                break
+                            end
                         end
                     end
                     if not aimAt then
@@ -1772,7 +1781,7 @@ local function updateTriggerbot()
     local humanoid = getHumanoid()
     if not character or not humanoid or humanoid.Health <= 0 then releaseTriggerTool(); return end
     local target = getCrosshairTarget()
-    if not target then
+    if not target and not Settings.Optimized then
         local center = Camera.ViewportSize / 2
         local closestPixels = 48
         for _, player in ipairs(Players:GetPlayers()) do
@@ -2481,6 +2490,12 @@ end
 connect(firePresetButton.MouseButton1Click, function()
     setFirePreset(not Settings.TriggerbotEnabled or not Settings.PeekPrefire)
 end)
+connect(optimizeButton.MouseButton1Click, function()
+    Settings.Optimized = not Settings.Optimized
+    State.VisualClock = 0
+    optimizeButton.Text = "Optimize: " .. (Settings.Optimized and "ON" or "OFF")
+    log(Settings.Optimized and "Optimize on. Visuals and peek checks are slower." or "Optimize off. Full test rate.")
+end)
 connect(aimButton.MouseButton1Click, function()
         if Settings.FreecamEnabled then log("Exit Freecam before enabling Auto Aim."); return end
         Settings.AimEnabled =
@@ -2819,14 +2834,24 @@ connect(RunService.RenderStepped, function(dt)
             main.Visible and Settings.AimEnabled
         updateAim(dt)
         updateTriggerbot()
-        updatePeekPrefire()
-        updateDrawings()
+        if not Settings.Optimized then
+            State.VisualClock = 0
+            updatePeekPrefire()
+            updateDrawings()
+        else
+            State.VisualClock += dt
+            if State.VisualClock >= 0.15 then
+                State.VisualClock = 0
+                updatePeekPrefire()
+                updateDrawings()
+            end
+        end
         applyWalkSpeed()
         updateFly(dt)
         updateCFrameSpeed(dt)
         applyJumpPower()
         espTimer += dt
-        if espTimer >= 1 then
+        if espTimer >= (Settings.Optimized and 2 or 1) then
             espTimer = 0
             if Settings.ESPEnabled or Settings.TargetedESPEnabled then
                 refreshESP()
@@ -2937,6 +2962,8 @@ local function disableAll()
     teamCheckButton.Text = "Team Check: OFF"
     combatPresetButton.Text = "Enemy Combat Preset: OFF"
     firePresetButton.Text = "Trigger and Prefire: OFF"
+    optimizeButton.Text = "Optimize: OFF"
+    Settings.Optimized = false
     espBoxesButton.Text = "2D Boxes: OFF"
     xrayButton.Text = "X-Ray Walls: OFF"
     hitboxButton.Text = "Hitbox Expander: OFF"
