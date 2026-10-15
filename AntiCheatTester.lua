@@ -150,15 +150,18 @@ local function connect(signal, callback)
     return connection
 end
 local Theme = {
-    Bg = Color3.fromRGB(10, 13, 18),
-    Raised = Color3.fromRGB(24, 30, 40),
-    RaisedHover = Color3.fromRGB(32, 40, 52),
-    Line = Color3.fromRGB(52, 64, 80),
-    Text = Color3.fromRGB(236, 241, 247),
-    Muted = Color3.fromRGB(148, 160, 176),
-    Accent = Color3.fromRGB(92, 196, 255),
-    On = Color3.fromRGB(52, 211, 153),
-    Danger = Color3.fromRGB(255, 107, 122),
+    Bg = Color3.fromRGB(8, 12, 18),
+    Raised = Color3.fromRGB(22, 28, 38),
+    RaisedHover = Color3.fromRGB(36, 46, 60),
+    Line = Color3.fromRGB(186, 204, 224),
+    Text = Color3.fromRGB(244, 247, 252),
+    Muted = Color3.fromRGB(198, 208, 220),
+    Accent = Color3.fromRGB(120, 210, 255),
+    On = Color3.fromRGB(72, 220, 160),
+    Danger = Color3.fromRGB(255, 110, 124),
+    Panel = 0.52,
+    Surface = 0.58,
+    Stroke = 0.28,
 }
 local function addCorner(parent, radius)
     local corner = Instance.new("UICorner")
@@ -166,11 +169,25 @@ local function addCorner(parent, radius)
     corner.Parent = parent
     return corner
 end
+local function addStroke(parent, color)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or Theme.Line
+    stroke.Thickness = 1
+    stroke.Transparency = Theme.Stroke
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = parent
+    return stroke
+end
+local function ink(label)
+    label.TextStrokeColor3 = Color3.new(0, 0, 0)
+    label.TextStrokeTransparency = 0.4
+end
 local main = Instance.new("Frame")
 main.Name = "Main"
 main.Size = UDim2.fromOffset(468, 640)
 main.Position = UDim2.new(0, 24, 0.5, -320)
 main.BackgroundColor3 = Theme.Bg
+main.BackgroundTransparency = Theme.Panel
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
 main.Parent = gui
@@ -185,18 +202,17 @@ local tabBar = Instance.new("Frame")
 tabBar.Name = "Tabs"
 tabBar.Position = UDim2.fromOffset(12, 60)
 tabBar.Size = UDim2.new(1, -24, 0, 34)
-tabBar.BackgroundColor3 = Color3.fromRGB(16, 20, 26)
+tabBar.BackgroundColor3 = Theme.Bg
+tabBar.BackgroundTransparency = Theme.Surface
 tabBar.BorderSizePixel = 0
 tabBar.Parent = main
 addCorner(tabBar, 8)
 do
-    local mainStroke = Instance.new("UIStroke")
-    mainStroke.Color = Theme.Line
-    mainStroke.Thickness = 1
-    mainStroke.Parent = main
+    addStroke(main)
     local accentBar = Instance.new("Frame")
     accentBar.Size = UDim2.new(1, 0, 0, 3)
     accentBar.BackgroundColor3 = Theme.Accent
+    accentBar.BackgroundTransparency = 0.2
     accentBar.BorderSizePixel = 0
     accentBar.Parent = main
     local titleText = Instance.new("TextLabel")
@@ -208,6 +224,7 @@ do
     titleText.TextXAlignment = Enum.TextXAlignment.Left
     titleText.TextColor3 = Theme.Text
     titleText.Text = "Anti-Cheat Tester"
+    ink(titleText)
     titleText.Parent = title
     local subtitle = Instance.new("TextLabel")
     subtitle.BackgroundTransparency = 1
@@ -218,6 +235,7 @@ do
     subtitle.TextXAlignment = Enum.TextXAlignment.Left
     subtitle.TextColor3 = Theme.Muted
     subtitle.Text = "Right Shift hides this panel"
+    ink(subtitle)
     subtitle.Parent = title
     local tabLayout = Instance.new("UIListLayout")
     tabLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -239,7 +257,8 @@ local tabButtons = {}
 local logBox = Instance.new("TextLabel")
 logBox.Size = UDim2.new(1, -24, 0, 86)
 logBox.Position = UDim2.new(0, 12, 1, -98)
-logBox.BackgroundColor3 = Color3.fromRGB(14, 18, 24)
+logBox.BackgroundColor3 = Theme.Bg
+logBox.BackgroundTransparency = Theme.Surface
 logBox.BorderSizePixel = 0
 logBox.Text = "Waiting for a test."
 logBox.TextColor3 = Color3.fromRGB(186, 198, 214)
@@ -248,8 +267,10 @@ logBox.Font = Enum.Font.Code
 logBox.TextWrapped = true
 logBox.TextXAlignment = Enum.TextXAlignment.Left
 logBox.TextYAlignment = Enum.TextYAlignment.Top
+ink(logBox)
 logBox.Parent = main
 addCorner(logBox, 8)
+addStroke(logBox)
 do
     local logCaption = Instance.new("TextLabel")
     logCaption.BackgroundTransparency = 1
@@ -260,6 +281,7 @@ do
     logCaption.TextXAlignment = Enum.TextXAlignment.Left
     logCaption.TextColor3 = Theme.Muted
     logCaption.Text = "ACTIVITY"
+    ink(logCaption)
     logCaption.Parent = main
     local logPad = Instance.new("UIPadding")
     logPad.PaddingTop = UDim.new(0, 8)
@@ -295,6 +317,7 @@ local function createPage(name)
     page.BorderSizePixel = 0
     page.ScrollBarThickness = 4
     page.ScrollBarImageColor3 = Theme.Accent
+    page.ScrollBarImageTransparency = 0.35
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.CanvasSize = UDim2.new()
     page.Visible = false
@@ -317,9 +340,9 @@ local function showPage(name)
     end
     for tabName, tab in pairs(tabButtons) do
         local selected = tabName == name
-        tab.BackgroundTransparency = selected and 0 or 1
+        tab.BackgroundTransparency = selected and 0.35 or 1
         tab.BackgroundColor3 = Theme.Accent
-        tab.TextColor3 = selected and Color3.fromRGB(10, 16, 22) or Theme.Muted
+        tab.TextColor3 = selected and Theme.Text or Theme.Muted
     end
 end
 local navInfo = {
@@ -348,7 +371,9 @@ local function makeButton(parent, text)
         button.Size = UDim2.new(1, -4, 0, 40)
         button.TextTransparency = 1
         button.BackgroundColor3 = Theme.Raised
+        button.BackgroundTransparency = Theme.Surface
         addCorner(button, 8)
+        addStroke(button)
         local nameLabel = Instance.new("TextLabel")
         nameLabel.BackgroundTransparency = 1
         nameLabel.Position = UDim2.fromOffset(12, 0)
@@ -358,11 +383,13 @@ local function makeButton(parent, text)
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
         nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
         nameLabel.TextColor3 = Theme.Text
+        ink(nameLabel)
         nameLabel.Parent = button
         local pill = Instance.new("Frame")
         pill.AnchorPoint = Vector2.new(1, 0.5)
         pill.Position = UDim2.new(1, -8, 0.5, 0)
         pill.Size = UDim2.fromOffset(48, 22)
+        pill.BackgroundTransparency = 0.2
         pill.BorderSizePixel = 0
         pill.Parent = button
         addCorner(pill, 11)
@@ -383,6 +410,7 @@ local function makeButton(parent, text)
             pillText.TextColor3 = on and Color3.fromRGB(8, 32, 24) or Color3.fromRGB(198, 206, 216)
             pill.BackgroundColor3 = on and Theme.On or Color3.fromRGB(58, 68, 82)
             button.BackgroundColor3 = on and Color3.fromRGB(16, 42, 36) or Theme.Raised
+            button.BackgroundTransparency = Theme.Surface
         end
         refreshToggle()
         button:GetPropertyChangedSignal("Text"):Connect(refreshToggle)
@@ -390,7 +418,9 @@ local function makeButton(parent, text)
         button.Size = UDim2.new(1, -4, 0, 64)
         button.TextTransparency = 1
         button.BackgroundColor3 = Theme.Raised
+        button.BackgroundTransparency = Theme.Surface
         addCorner(button, 10)
+        addStroke(button)
         local bar = Instance.new("Frame")
         bar.Size = UDim2.new(0, 3, 1, -18)
         bar.Position = UDim2.fromOffset(0, 9)
@@ -406,6 +436,7 @@ local function makeButton(parent, text)
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
         nameLabel.TextColor3 = Theme.Text
         nameLabel.Text = text
+        ink(nameLabel)
         nameLabel.Parent = button
         local detail = Instance.new("TextLabel")
         detail.BackgroundTransparency = 1
@@ -416,6 +447,7 @@ local function makeButton(parent, text)
         detail.TextXAlignment = Enum.TextXAlignment.Left
         detail.TextColor3 = Theme.Muted
         detail.Text = navDetail
+        ink(detail)
         detail.Parent = button
         local chevron = Instance.new("TextLabel")
         chevron.BackgroundTransparency = 1
@@ -436,10 +468,13 @@ local function makeButton(parent, text)
     elseif dangerButtons[text] then
         button.Size = UDim2.new(1, -4, 0, 36)
         button.BackgroundColor3 = Theme.Danger
-        button.TextColor3 = Color3.fromRGB(32, 8, 12)
+        button.BackgroundTransparency = 0.35
+        button.TextColor3 = Theme.Text
         button.Font = Enum.Font.GothamBold
         button.TextXAlignment = Enum.TextXAlignment.Center
+        ink(button)
         addCorner(button, 8)
+        addStroke(button, Theme.Danger)
     elseif string.sub(text, 1, 1) == "<" then
         button.Size = UDim2.new(1, -4, 0, 26)
         button.BackgroundTransparency = 1
@@ -451,13 +486,11 @@ local function makeButton(parent, text)
     else
         button.Size = UDim2.new(1, -4, 0, 36)
         button.BackgroundColor3 = Theme.Raised
+        button.BackgroundTransparency = Theme.Surface
         button.TextXAlignment = Enum.TextXAlignment.Center
+        ink(button)
         addCorner(button, 8)
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Theme.Line
-        stroke.Thickness = 1
-        stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        stroke.Parent = button
+        addStroke(button)
         button.MouseEnter:Connect(function()
             button.BackgroundColor3 = Theme.RaisedHover
         end)
@@ -513,6 +546,7 @@ local function makeLabel(parent, text)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextTruncate = Enum.TextTruncate.AtEnd
     label.LayoutOrder = #parent:GetChildren()
+    ink(label)
     label.Parent = parent
     refreshLabel(label)
     label:GetPropertyChangedSignal("Text"):Connect(function()
@@ -522,17 +556,16 @@ local function makeLabel(parent, text)
 end
 local function styleField(box)
     box.BackgroundColor3 = Theme.Raised
+    box.BackgroundTransparency = Theme.Surface
     box.BorderSizePixel = 0
     box.ClearTextOnFocus = false
     box.TextColor3 = Theme.Text
     box.PlaceholderColor3 = Theme.Muted
     box.Font = Enum.Font.GothamMedium
     box.TextSize = 13
+    ink(box)
     addCorner(box, 8)
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Theme.Line
-    stroke.Thickness = 1
-    stroke.Parent = box
+    addStroke(box)
 end
 local function makeTextBox(parent, text)
     local box = Instance.new("TextBox")
@@ -571,6 +604,7 @@ local function makeStepper(parent, format, step)
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextColor3 = Theme.Text
     label.Text = format()
+    ink(label)
     label.Parent = row
     local function stepButton(symbol, offset, direction)
         local button = Instance.new("TextButton")
@@ -579,13 +613,16 @@ local function makeStepper(parent, format, step)
         button.AnchorPoint = Vector2.new(1, 0.5)
         button.Position = UDim2.new(1, offset, 0.5, 0)
         button.BackgroundColor3 = Theme.Raised
+        button.BackgroundTransparency = Theme.Surface
         button.BorderSizePixel = 0
         button.Font = Enum.Font.GothamBold
         button.TextSize = 16
         button.TextColor3 = Theme.Text
         button.Text = symbol
+        ink(button)
         button.Parent = row
         addCorner(button, 8)
+        addStroke(button)
         button.MouseEnter:Connect(function()
             button.BackgroundColor3 = Theme.RaisedHover
         end)
@@ -619,13 +656,16 @@ local function makeInlineField(parent, boxText, buttonText)
     button.Position = UDim2.new(1, 0, 0, 0)
     button.Size = UDim2.fromOffset(108, 36)
     button.BackgroundColor3 = Theme.Accent
+    button.BackgroundTransparency = 0.28
     button.BorderSizePixel = 0
     button.Font = Enum.Font.GothamBold
     button.TextSize = 13
-    button.TextColor3 = Color3.fromRGB(10, 18, 26)
+    button.TextColor3 = Theme.Text
     button.Text = buttonText
+    ink(button)
     button.Parent = row
     addCorner(button, 8)
+    addStroke(button, Theme.Accent)
     return box, button
 end
 local function makeCycle(parent, labelText, options, initial, onChange)
@@ -634,10 +674,12 @@ local function makeCycle(parent, labelText, options, initial, onChange)
     button.BorderSizePixel = 0
     button.Size = UDim2.new(1, -4, 0, 40)
     button.BackgroundColor3 = Theme.Raised
+    button.BackgroundTransparency = Theme.Surface
     button.Text = ""
     button.LayoutOrder = #parent:GetChildren()
     button.Parent = parent
     addCorner(button, 8)
+    addStroke(button)
     local nameLabel = Instance.new("TextLabel")
     nameLabel.BackgroundTransparency = 1
     nameLabel.Position = UDim2.fromOffset(12, 0)
@@ -647,12 +689,14 @@ local function makeCycle(parent, labelText, options, initial, onChange)
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.TextColor3 = Theme.Text
     nameLabel.Text = labelText
+    ink(nameLabel)
     nameLabel.Parent = button
     local pill = Instance.new("Frame")
     pill.AnchorPoint = Vector2.new(1, 0.5)
     pill.Position = UDim2.new(1, -8, 0.5, 0)
     pill.Size = UDim2.fromOffset(104, 24)
     pill.BackgroundColor3 = Color3.fromRGB(20, 48, 66)
+    pill.BackgroundTransparency = 0.35
     pill.BorderSizePixel = 0
     pill.Parent = button
     addCorner(pill, 12)
@@ -690,6 +734,7 @@ local function addTab(name, label, order)
     tab.TextSize = 12
     tab.Text = label
     tab.TextColor3 = Theme.Muted
+    ink(tab)
     tab.LayoutOrder = order
     tab.Parent = tabBar
     addCorner(tab, 6)
@@ -1455,26 +1500,25 @@ inventoryPanel.Name = "AntiCheatInventoryPanel"
 inventoryPanel.AnchorPoint = Vector2.new(1, 0.5)
 inventoryPanel.Position = UDim2.new(1, -20, 0.5, 0)
 inventoryPanel.Size = UDim2.fromOffset(300, 260)
-inventoryPanel.BackgroundColor3 = Color3.fromRGB(14, 18, 24)
-inventoryPanel.BackgroundTransparency = 0.04
+inventoryPanel.BackgroundColor3 = Theme.Bg
+inventoryPanel.BackgroundTransparency = Theme.Panel
 inventoryPanel.BorderSizePixel = 0
 inventoryPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
 inventoryPanel.CanvasSize = UDim2.new()
 inventoryPanel.ScrollBarThickness = 4
 inventoryPanel.ScrollBarImageColor3 = Theme.Accent
+inventoryPanel.ScrollBarImageTransparency = 0.35
 inventoryPanel.Visible = false
 inventoryPanel.Parent = gui
 addCorner(inventoryPanel, 12)
-local inventoryStroke = Instance.new("UIStroke")
-inventoryStroke.Color = Theme.Line
-inventoryStroke.Thickness = 1
-inventoryStroke.Parent = inventoryPanel
+addStroke(inventoryPanel)
 local inventoryText = Instance.new("TextLabel")
 inventoryText.Position = UDim2.fromOffset(14, 12)
 inventoryText.Size = UDim2.new(1, -28, 0, 0)
 inventoryText.AutomaticSize = Enum.AutomaticSize.Y
 inventoryText.BackgroundTransparency = 1
 inventoryText.TextColor3 = Theme.Text
+ink(inventoryText)
 inventoryText.Font = Enum.Font.GothamMedium
 inventoryText.TextSize = 13
 inventoryText.TextWrapped = true
